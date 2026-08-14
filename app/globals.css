@@ -2,26 +2,75 @@
 @tailwind components;
 @tailwind utilities;
 
+/* TwoCents — "midnight ledger"
+   Dark-first: near-black surfaces with a green undertone, warm ivory ink,
+   mint + amber as the two partners' identity colors. Amounts always render
+   in the mono ledger face. */
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --bg: #0d1210;
+  --surface: #161d19;
+  --surface-2: #1e2721;
+  --ink: #f1eee4;
+  --ink-dim: #a8b0a6;
+  --ink-mute: #6b7a70;
+  --mint: #7fe0b2;
+  --amber: #f0b860;
+  --danger: #ff8577;
+  --hairline: rgba(241, 238, 228, 0.09);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html {
+  background: var(--bg);
 }
 
 body {
-  color: var(--foreground);
-  background: var(--background);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-body), system-ui, sans-serif;
+  -webkit-tap-highlight-color: transparent;
+  min-height: 100dvh;
 }
 
-@layer utilities {
-  .text-balance {
-    text-wrap: balance;
+::selection {
+  background: var(--mint);
+  color: #0d1210;
+}
+
+:focus-visible {
+  outline: 2px solid var(--mint);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+input,
+button {
+  font: inherit;
+}
+
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
   }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.rise-in {
+  animation: rise-in 240ms ease-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rise-in {
+    animation: none;
+  }
+}
+
+/* Recessive scrollbars */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--surface-2) transparent;
 }

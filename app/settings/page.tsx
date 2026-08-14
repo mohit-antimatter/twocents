@@ -1,0 +1,153 @@
+import { redirect } from "next/navigation";
+import Link from "next/link";
+import { db } from "@/lib/db";
+import { getSessionUser } from "@/lib/auth";
+import { getHousehold, getMembers, listPresets } from "@/lib/expenses";
+import { listCategories } from "@/lib/categories";
+import { personColorMap } from "@/lib/colors";
+import CopyButton from "@/components/CopyButton";
+import PresetManager from "@/components/PresetManager";
+import TokenManager from "@/components/TokenManager";
+import SignOutButton from "@/components/SignOutButton";
+
+export const dynamic = "force-dynamic";
+
+export default function SettingsPage() {
+  const user = getSessionUser();
+  if (!user) redirect("/login");
+  if (!user.householdId) redirect("/onboarding");
+
+  const hh = getHousehold(user.householdId);
+  const members = getMembers(user.householdId);
+  const personColors = personColorMap(members);
+  const presets = listPresets(user.householdId);
+  const categories = listCategories(user.householdId);
+  const tokens = db()
+    .prepare(
+      "SELECT id, label, created_at, last_used_at FROM api_tokens WHERE user_id = ? ORDER BY created_at DESC"
+    )
+    .all(user.id) as { id: string; label: string; created_at: number; last_used_at: number | null }[];
+
+  return (
+    <main className="mx-auto max-w-md px-4 pb-16 pt-[max(1.25rem,env(safe-area-inset-top))]">
+      <header className="mb-7 flex items-center gap-3">
+        <Link
+          href="/"
+          className="grid h-10 w-10 place-items-center rounded-xl text-dim transition-colors hover:bg-surface hover:text-ink"
+          aria-label="Back to home"
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M15 18l-6-6 6-6" />
+          </svg>
+        </Link>
+        <h1 className="font-display text-xl font-semibold tracking-tight text-ink">Settings</h1>
+      </header>
+
+      <div className="space-y-8">
+        {/* Household */}
+        <section>
+          <h2 className="mb-3 text-xs font-medium uppercase tracking-[0.14em] text-mute">
+            Household
+          </h2>
+          <div className="space-y-4 rounded-2xl border border-hairline bg-surface p-4">
+            <div>
+              <p className="text-sm text-mute">Name</p>
+              <p className="text-ink">{hh.name}</p>
+            </div>
+            <div>
+              <p className="text-sm text-mute">Home currency</p>
+              <p className="text-ink">{hh.home_currency} — every expense rolls up into this</p>
+            </div>
+            <div>
+              <p className="mb-1.5 text-sm text-mute">Members</p>
+              <ul className="space-y-1.5">
+                {members.map((m) => (
+                  <li key={m.id} className="flex items-center gap-2 text-sm text-ink">
+                    <span
+                      aria-hidden
+                      className="h-2.5 w-2.5 rounded-full"
+                      style={{ backgroundColor: personColors[m.id] }}
+                    />
+                    {m.name}
+                    {m.id === user.id && <span className="text-xs text-mute">(you)</span>}
+                  </li>
+                ))}
+              </ul>
+            </div>
+            {members.length < 2 && (
+              <div className="rounded-xl border border-amber/30 bg-surface2 p-3">
+                <p className="text-sm text-ink">Invite your partner</p>
+                <p className="mt-0.5 text-xs text-mute">
+                  They sign up, choose “Join with a code”, and enter:
+                </p>
+                <div className="mt-2 flex items-center gap-2">
+                  <code className="rounded-lg bg-bg px-3 py-1.5 font-money text-sm tracking-[0.2em] text-amber">
+                    {hh.invite_code}
+                  </code>
+                  <CopyButton value={hh.invite_code} />
+                </div>
+              </div>
+            )}
+          </div>
+        </section>
+
+        {/* Presets */}
+        <section id="presets">
+          <h2 className="mb-1 text-xs font-medium uppercase tracking-[0.14em] text-mute">
+            One-tap presets
+          </h2>
+          <p className="mb-3 text-sm text-mute">
+            Your repeat expenses as single-tap chips on the home screen.
+          </p>
+          <PresetManager
+            presets={presets}
+            categories={categories.map((c) => ({ id: c.id, name: c.name, emoji: c.emoji }))}
+            homeCurrency={hh.home_currency}
+          />
+        </section>
+
+        {/* Siri & Shortcuts */}
+        <section>
+          <h2 className="mb-1 text-xs font-medium uppercase tracking-[0.14em] text-mute">
+            Siri &amp; iPhone Shortcuts
+          </h2>
+          <p className="mb-3 text-sm text-mute">
+            Log expenses by voice from anywhere — Action Button, Back Tap, or “Hey Siri”.
+          </p>
+          <TokenManager initialTokens={tokens} />
+        </section>
+
+        {/* Categories */}
+        <section>
+          <h2 className="mb-3 text-xs font-medium uppercase tracking-[0.14em] text-mute">
+            Categories
+          </h2>
+          <div className="flex flex-wrap gap-1.5">
+            {categories.map((c) => (
+              <span
+                key={c.id}
+                className="rounded-full border border-hairline bg-surface px-3 py-1.5 text-xs text-dim"
+              >
+                {c.emoji} {c.name}
+              </span>
+            ))}
+          </div>
+        </section>
+
+        {/* Account */}
+        <section>
+          <h2 className="mb-3 text-xs font-medium uppercase tracking-[0.14em] text-mute">
+            Account
+          </h2>
+          <div className="flex items-center justify-between rounded-2xl border border-hairline bg-surface p-4">
+            <div>
+              <p className="text-ink">{user.name}</p>
+              <p className="text-sm text-mute">{user.email}</p>
+            </div>
+            <SignOutButton />
+          </div>
+        </section>
+      </div>
+    </main>
+  );
+}

@@ -1,36 +1,40 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# TwoCents
 
-## Getting Started
+The shared expense ledger for couples. Log an expense in three seconds, see where the month went — together. No bank permissions, no API keys, no data leaving your server.
 
-First, run the development server:
+## Why it exists
+
+Expense trackers die from entry friction. TwoCents attacks that directly:
+
+- **One parsing brain, many mouths.** Type `swiggy 450`, say it to Siri, or tap a preset — every surface funnels into the same local `text → structured expense` parser. It handles merchant keywords, dates ("yesterday", "last friday"), shorthand ("2k", "1.5 lakh"), currency symbols, and spelled-out numbers from voice dictation ("three hundred on chai").
+- **Shared by design.** Expenses live in a *household*, not an account. Either partner logs, both see everything, and analysis covers "us" — sliceable by person.
+- **Multi-currency.** Each expense keeps its own currency; the FX rate is snapshotted at capture so history never drifts. Totals roll up into the household home currency.
+- **Fully self-contained.** Parsing is deterministic local code. Nothing is sent to any third-party service.
+
+## Running it
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open http://localhost:3000, create an account, create a household, and share the invite code (Settings) with your partner.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### iPhone Shortcuts / Siri
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Settings → *Siri & iPhone Shortcuts* → generate a token, then follow the 5-step guide there. You get "Hey Siri, log expense", Action Button, and Back Tap logging via a simple authenticated POST to `/api/shortcuts/capture`. Your phone must be able to reach the server (deploy it, or use your Mac's LAN IP in dev).
 
-## Learn More
+## Architecture
 
-To learn more about Next.js, take a look at the following resources:
+- **Next.js 14 (App Router) + TypeScript + Tailwind** — PWA (manifest + service worker + installable icons)
+- **SQLite via better-sqlite3** in `data/` — schema kept Postgres-compatible for the launch migration
+- **Cookie sessions + bcrypt**; personal API tokens (SHA-256 hashed) for Shortcuts
+- **Deterministic local parser** in `lib/parse.ts` — keywords, dates, currencies, word-numbers
+- Chart palette is CVD-validated for the dark surface
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Roadmap (phase 2)
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- Native iOS app with App Intents (deepest Siri/widget integration) on the same API
+- Budgets per category with alerts
+- Live FX rates
+- Postgres + hosted deploy for real users

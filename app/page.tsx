@@ -1,101 +1,105 @@
-import Image from "next/image";
+import { redirect } from "next/navigation";
+import Link from "next/link";
+import { getSessionUser } from "@/lib/auth";
+import {
+  getHousehold,
+  getMembers,
+  getMonthSummary,
+  listPresets,
+  listRecentExpenses,
+} from "@/lib/expenses";
+import { formatMinor } from "@/lib/money";
+import { personColorMap } from "@/lib/colors";
+import { localToday } from "@/lib/parse";
+import { listCategories } from "@/lib/categories";
+import QuickAdd from "@/components/QuickAdd";
+import PresetChips from "@/components/PresetChips";
+import ExpenseList from "@/components/ExpenseList";
+
+export const dynamic = "force-dynamic";
 
 export default function Home() {
-  return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-8 row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="https://nextjs.org/icons/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-semibold">
-              app/page.tsx
-            </code>
-            .
-          </li>
-          <li>Save and see your changes instantly.</li>
-        </ol>
+  const user = getSessionUser();
+  if (!user) redirect("/login");
+  if (!user.householdId) redirect("/onboarding");
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+  const hh = getHousehold(user.householdId);
+  const members = getMembers(user.householdId);
+  const personColors = personColorMap(members);
+  const today = localToday();
+  const month = today.slice(0, 7);
+  const summary = getMonthSummary(user.householdId, month);
+  const presets = listPresets(user.householdId);
+  const recent = listRecentExpenses(user.householdId, 40);
+  const categories = listCategories(user.householdId).map((c) => ({
+    id: c.id,
+    name: c.name,
+    emoji: c.emoji,
+  }));
+
+  const monthName = new Date(month + "-01T12:00:00").toLocaleDateString("en-GB", {
+    month: "long",
+  });
+
+  return (
+    <main className="mx-auto max-w-md px-4 pb-16 pt-[max(1.25rem,env(safe-area-inset-top))]">
+      <header className="mb-6 flex items-center justify-between">
+        <h1 className="font-display text-xl font-semibold tracking-tight text-ink">
+          two<span className="text-mint">¢</span>ents
+        </h1>
+        <nav className="flex items-center gap-1">
+          <Link
+            href="/insights"
+            className="grid h-10 w-10 place-items-center rounded-xl text-dim transition-colors hover:bg-surface hover:text-ink"
+            aria-label="Insights"
+            title="Insights"
           >
-            <Image
-              className="dark:invert"
-              src="https://nextjs.org/icons/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:min-w-44"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+            <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+              <path d="M4 20V10M10 20V4M16 20v-7M22 20H2" />
+            </svg>
+          </Link>
+          <Link
+            href="/settings"
+            className="grid h-10 w-10 place-items-center rounded-xl text-dim transition-colors hover:bg-surface hover:text-ink"
+            aria-label="Settings"
+            title="Settings"
           >
-            Read our docs
-          </a>
-        </div>
-      </main>
-      <footer className="row-start-3 flex gap-6 flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
-    </div>
+            <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="3" />
+              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+            </svg>
+          </Link>
+        </nav>
+      </header>
+
+      <section className="mb-6">
+        <p className="text-xs font-medium uppercase tracking-[0.18em] text-mute">
+          {monthName} · {hh.name}
+        </p>
+        <p className="mt-1 font-money text-4xl font-medium tabular-nums text-ink">
+          {formatMinor(summary.totalMinor, hh.home_currency)}
+        </p>
+        <p className="mt-1 text-sm text-mute">
+          {summary.count} expense{summary.count === 1 ? "" : "s"} this month
+          {members.length > 1 && " · both of you"}
+        </p>
+      </section>
+
+      <section className="mb-4">
+        <QuickAdd />
+      </section>
+
+      <section className="mb-7">
+        <PresetChips presets={presets} />
+      </section>
+
+      <ExpenseList
+        items={recent}
+        personColors={personColors}
+        today={today}
+        currentUserId={user.id}
+        categories={categories}
+      />
+    </main>
   );
 }
