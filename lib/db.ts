@@ -59,6 +59,7 @@ CREATE TABLE IF NOT EXISTS expenses (
   spent_time TEXT,
   source TEXT NOT NULL DEFAULT 'web',
   raw_input TEXT,
+  request_id TEXT,
   created_at INTEGER NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_expenses_hh_date ON expenses(household_id, spent_on);
@@ -108,6 +109,12 @@ function migrate(d: Database.Database) {
   if (!cols.some((c) => c.name === "spent_time")) {
     d.exec("ALTER TABLE expenses ADD COLUMN spent_time TEXT");
   }
+  if (!cols.some((c) => c.name === "request_id")) {
+    d.exec("ALTER TABLE expenses ADD COLUMN request_id TEXT");
+  }
+  d.exec(
+    "CREATE UNIQUE INDEX IF NOT EXISTS idx_expenses_user_request ON expenses(user_id, request_id)"
+  );
 }
 
 export function uid(): string {

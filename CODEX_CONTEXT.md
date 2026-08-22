@@ -1,6 +1,6 @@
 # TwoCents — Handoff Context
 
-Updated 2026-08-21 (from the Claude Code founding sessions). Read this before touching code.
+Updated 2026-08-22 (Codex takeover in progress). Read this before touching code.
 
 ## What this is
 
@@ -19,11 +19,13 @@ TwoCents is a **shared household expense ledger for couples** — a product from
 
 ## Current state (all browser-verified)
 
-Working end to end: signup/login (cookie sessions, bcrypt) → household create/join via invite code → NL quick-add (`swiggy 450`, `uber 340 yesterday`, `petrol 2k`, `$40 dinner`, `three hundred on chai`) → voice entry (Web Speech API feeding same parser; needs HTTPS so works on localhost but not LAN-IP) → one-tap presets → shared ledger with per-person dots → tap-to-edit sheet (amount, currency, category, merchant, note, date, time; delete inside sheet) → insights (month nav, hero total + delta vs prev month, daily bars, category bars, who-paid split) → settings (invite code, presets CRUD, API tokens, Shortcuts setup guide) → Shortcuts endpoint (bearer auth; returns `{"message": "₹450 · 🍜 Food & Drinks · Swiggy ✓"}` for the notification).
+Working end to end: signup/login (cookie sessions, bcrypt) → household create/join via invite code → NL quick-add (`swiggy 450`, `uber 340 yesterday`, `petrol 2k`, `$40 dinner`, `three hundred on chai`) → voice entry with transcript review before saving (Web Speech API feeding the same parser; needs HTTPS so works on localhost but not LAN-IP) → structured capture confirmation with Undo/Edit → one-tap presets → shared ledger with per-person dots → tap-to-edit sheet (amount, currency, category, merchant, note, date, time; delete inside sheet) → insights (month nav, hero total + delta vs prev month, daily bars, category bars, who-paid split) → settings (invite code, presets CRUD, API tokens, Shortcuts setup guide) → Shortcuts endpoint (bearer auth; returns `{"message": "₹450 · 🍜 Food & Drinks · Swiggy ✓"}` for the notification).
+
+Capture trust work completed and browser-verified on 2026-08-22: negative and multi-number inputs are rejected instead of guessed; malformed dates/times, unsafe amounts, and cross-household category IDs are rejected; web captures use a per-request idempotency key; successful captures expose Undo and Edit; voice no longer auto-saves. Regression suite: `npm test` (12 tests at time of update).
 
 ## Architecture / file map
 
-- `lib/db.ts` — better-sqlite3 singleton (`global.__twocents_db`), schema (Postgres-compatible: TEXT ids, INTEGER ms), and `migrate()` for additive ALTERs.
+- `lib/db.ts` — better-sqlite3 singleton (`global.__twocents_db`), schema (Postgres-compatible: TEXT ids, INTEGER ms), and `migrate()` for additive ALTERs. Web captures store a nullable `request_id` with a per-user unique index for idempotency.
 - `lib/auth.ts` — sessions (cookie `tc_session`, 90d), bcrypt, bearer-token resolution (SHA-256 hashes in `api_tokens`).
 - `lib/parse.ts` — THE parsing brain. Every capture surface funnels here. Currency symbols/words, digit + `k`/`lakh` shorthand, spelled-out word-numbers, date words (yesterday/day before/weekdays), category+merchant from `CATEGORY_KEYWORDS`.
 - `lib/categories.ts` — default category set with chart colors + the keyword dictionary.
@@ -42,7 +44,7 @@ Money rule: integers in minor units; `home_minor = round(amount_minor * fx_to_ho
 
 ## Dev workflow & hard-won gotchas
 
-- Run: `npm run dev` (port 3000). Build check: `npx tsc --noEmit`.
+- Run: `npm run dev` (port 3000). Checks: `npm test`, `npx tsc --noEmit`, `npm run lint`, and `npm run build`.
 - **NEVER run `npm run build` while the dev server is running.** Both write `.next/`; the build corrupts the live server (this happened; symptom: every route 500s with `Cannot find module './NNN.js'`). Recovery: stop server, `rm -rf .next`, restart.
 - **Schema changes need a server restart**: the DB singleton is cached in `global`, so `migrate()` only runs on a fresh process. Symptom of forgetting: `SqliteError: table X has no column named Y`.
 - Tailwind: don't stack `w-full` (in a shared class string) with `w-32`-style overrides — stylesheet order wins, not class order. Pattern in EditSheet: base class has no width; add `w-full` / `flex-1 min-w-0` / `w-32 shrink-0` per use.

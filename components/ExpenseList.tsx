@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { formatMinor, CURRENCIES } from "@/lib/money";
 
@@ -44,15 +44,30 @@ export default function ExpenseList({
   today,
   currentUserId,
   categories,
+  initialEditId,
 }: {
   items: ExpenseItem[];
   personColors: Record<string, string>;
   today: string;
   currentUserId: string;
   categories: CategoryOption[];
+  initialEditId?: string;
 }) {
   const router = useRouter();
   const [editing, setEditing] = useState<ExpenseItem | null>(null);
+
+  useEffect(() => {
+    if (!initialEditId) return;
+    const target = items.find(
+      (item) => item.id === initialEditId && item.user_id === currentUserId
+    );
+    if (target) setEditing(target);
+  }, [currentUserId, initialEditId, items]);
+
+  function closeEditor() {
+    setEditing(null);
+    if (initialEditId) router.replace("/", { scroll: false });
+  }
 
   if (items.length === 0) {
     return (
@@ -157,9 +172,9 @@ export default function ExpenseList({
         <EditSheet
           expense={editing}
           categories={categories}
-          onClose={() => setEditing(null)}
+          onClose={closeEditor}
           onSaved={() => {
-            setEditing(null);
+            closeEditor();
             router.refresh();
           }}
         />

@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getUserFromToken } from "@/lib/auth";
 import { getHousehold, createExpenseFromParsed } from "@/lib/expenses";
 import { listCategories } from "@/lib/categories";
-import { parseExpenseText, localToday } from "@/lib/parse";
+import { parseExpenseText, parsedExpenseError, localToday } from "@/lib/parse";
 
 // The iPhone Shortcuts / Siri endpoint. Authenticated with a personal API
 // token (Bearer). Accepts JSON {"text": "..."} from a dictation shortcut.
@@ -24,16 +24,12 @@ export async function POST(req: Request) {
 
   try {
     const { text } = await req.json();
-    if (!text?.trim()) {
+    if (typeof text !== "string" || !text.trim()) {
       return NextResponse.json({ message: "Nothing heard — try again." }, { status: 400 });
     }
     const parsed = parseExpenseText(text.trim(), ctx);
-    if (!parsed.amount) {
-      return NextResponse.json(
-        { message: `Couldn't find an amount in “${text.trim()}”.` },
-        { status: 422 }
-      );
-    }
+    const parseError = parsedExpenseError(parsed);
+    if (parseError) return NextResponse.json({ message: parseError }, { status: 422 });
     const { summary } = createExpenseFromParsed({
       householdId: user.householdId,
       userId: user.id,

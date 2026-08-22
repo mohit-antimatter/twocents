@@ -63,7 +63,8 @@ export function createExpenseFromParsed(opts: {
   parsed: ParsedExpense;
   source: string;
   rawInput: string | null;
-}): { id: string; summary: string } {
+  requestId?: string | null;
+}): { id: string; summary: string; created: boolean } {
   const hh = getHousehold(opts.householdId);
   const currency = opts.parsed.currency ?? hh.home_currency;
   const amountMinor = Math.round(opts.parsed.amount * 100);
@@ -75,37 +76,92 @@ export function createExpenseFromParsed(opts: {
     : null;
   const fallbackCat = cat ?? cats.find((c) => c.name === "Other") ?? null;
 
+  if (opts.requestId) {
+    const existing = expenseByRequestId(opts.householdId, opts.userId, opts.requestId);
+    if (existing) return { ...existing, created: false };
+  }
+
   const id = uid();
   // Time of spend: when logging for today, stamp the current time; a
   // backdated entry's time is unknown and stays editable-but-empty.
   const spentTime = opts.parsed.spent_on === todayISO() ? nowHHMM() : null;
-  db()
-    .prepare(
-      `INSERT INTO expenses
-       (id, household_id, user_id, amount_minor, currency, fx_to_home, category_id,
-        merchant, note, spent_on, spent_time, source, raw_input, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-    )
-    .run(
-      id,
-      opts.householdId,
-      opts.userId,
-      amountMinor,
-      currency,
-      fx,
-      fallbackCat?.id ?? null,
-      opts.parsed.merchant,
-      opts.parsed.note,
-      opts.parsed.spent_on,
-      spentTime,
-      opts.source,
-      opts.rawInput,
-      Date.now()
-    );
+  try {
+    db()
+      .prepare(
+        `INSERT INTO expenses
+         (id, household_id, user_id, amount_minor, currency, fx_to_home, category_id,
+          merchant, note, spent_on, spent_time, source, raw_input, request_id, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      )
+      .run(
+        id,
+        opts.householdId,
+        opts.userId,
+        amountMinor,
+        currency,
+        fx,
+        fallbackCat?.id ?? null,
+        opts.parsed.merchant,
+        opts.parsed.note,
+        opts.parsed.spent_on,
+        spentTime,
+        opts.source,
+        opts.rawInput,
+        opts.requestId ?? null,
+        Date.now()
+      );
+  } catch (error) {
+    // Two concurrent retries can both pass the lookup above. The unique index
+    // lets one win; the loser returns the already-created expense.
+    if (opts.requestId) {
+      const existing = expenseByRequestId(opts.householdId, opts.userId, opts.requestId);
+      if (existing) return { ...existing, created: false };
+    }
+    throw error;
+  }
 
   const label = fallbackCat ? `${fallbackCat.emoji} ${fallbackCat.name}` : "Uncategorized";
   const who = opts.parsed.merchant ? ` · ${opts.parsed.merchant}` : "";
-  return { id, summary: `${formatMinor(amountMinor, currency)} · ${label}${who} ✓` };
+  return {
+    id,
+    summary: `${formatMinor(amountMinor, currency)} · ${label}${who} ✓`,
+    created: true,
+  };
+}
+
+function expenseByRequestId(
+  householdId: string,
+  userId: string,
+  requestId: string
+): { id: string; summary: string } | null {
+  const row = db()
+    .prepare(
+      `SELECT e.id, e.amount_minor, e.currency, e.merchant,
+              c.name AS category_name, c.emoji AS category_emoji
+       FROM expenses e
+       LEFT JOIN categories c ON c.id = e.category_id
+       WHERE e.household_id = ? AND e.user_id = ? AND e.request_id = ?`
+    )
+    .get(householdId, userId, requestId) as
+    | {
+        id: string;
+        amount_minor: number;
+        currency: string;
+        merchant: string | null;
+        category_name: string | null;
+        category_emoji: string | null;
+      }
+    | undefined;
+  if (!row) return null;
+
+  const label = row.category_name
+    ? `${row.category_emoji ?? "🧾"} ${row.category_name}`
+    : "Uncategorized";
+  const who = row.merchant ? ` · ${row.merchant}` : "";
+  return {
+    id: row.id,
+    summary: `${formatMinor(row.amount_minor, row.currency)} · ${label}${who} ✓`,
+  };
 }
 
 export function listRecentExpenses(householdId: string, limit = 30): ExpenseRow[] {

@@ -18,7 +18,7 @@ import ExpenseList from "@/components/ExpenseList";
 
 export const dynamic = "force-dynamic";
 
-export default function Home() {
+export default function Home({ searchParams }: { searchParams?: { edit?: string } }) {
   const user = getSessionUser();
   if (!user) redirect("/login");
   if (!user.householdId) redirect("/onboarding");
@@ -99,6 +99,7 @@ export default function Home() {
         today={today}
         currentUserId={user.id}
         categories={categories}
+        initialEditId={searchParams?.edit}
       />
     </main>
   );

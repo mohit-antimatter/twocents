@@ -12,6 +12,7 @@ export type ParsedExpense = {
   merchant: string | null;
   note: string | null;
   spent_on: string; // YYYY-MM-DD
+  issue: "negative_amount" | "ambiguous_amount" | null;
 };
 
 export type ParseContext = {
@@ -21,14 +22,14 @@ export type ParseContext = {
 };
 
 const SYMBOL_TO_CODE: [RegExp, string][] = [
-  [/₹|\brs\.?\b|\binr\b|\brupees?\b/i, "INR"],
-  [/\$|\busd\b|\bdollars?\b/i, "USD"],
-  [/€|\beur\b|\beuros?\b/i, "EUR"],
-  [/£|\bgbp\b|\bpounds?\b/i, "GBP"],
-  [/\baed\b|\bdirhams?\b/i, "AED"],
-  [/\bsgd\b/i, "SGD"],
-  [/\baud\b/i, "AUD"],
-  [/\bcad\b/i, "CAD"],
+  [/₹|\brs\.?\b|\binr(?=\b|\d)|\brupees?\b/i, "INR"],
+  [/\$|\busd(?=\b|\d)|\bdollars?\b/i, "USD"],
+  [/€|\beur(?=\b|\d)|\beuros?\b/i, "EUR"],
+  [/£|\bgbp(?=\b|\d)|\bpounds?\b/i, "GBP"],
+  [/\baed(?=\b|\d)|\bdirhams?\b/i, "AED"],
+  [/\bsgd(?=\b|\d)/i, "SGD"],
+  [/\baud(?=\b|\d)/i, "AUD"],
+  [/\bcad(?=\b|\d)/i, "CAD"],
 ];
 
 const WEEKDAYS = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
@@ -86,19 +87,33 @@ export function parseExpenseText(text: string, ctx: ParseContext): ParsedExpense
   }
 
   // Amount: digits first ("450", "1.2k", "2,500"), then spelled-out words.
+  // Multiple numeric phrases are intentionally not guessed. Saving the wrong
+  // amount is worse than asking the user to make an ambiguous entry clearer.
   let amount = 0;
+  let issue: ParsedExpense["issue"] = null;
   let wordTokensUsed: Set<string> | null = null;
-  const m = lower.replace(/,/g, "").match(/(\d+(?:\.\d+)?)\s*(k\b|lakhs?\b)?/);
-  if (m && m[1]) {
+  const numericMatches = [
+    ...lower
+      .replace(/,/g, "")
+      .matchAll(
+        /(?:^|[\s₹$€£]|(?:inr|usd|eur|gbp|aed|sgd|aud|cad))([+-]?\d+(?:\.\d+)?)\s*(k\b|lakhs?\b)?/g
+      ),
+  ];
+  const m = numericMatches[0];
+  if (numericMatches.length > 1) {
+    issue = "ambiguous_amount";
+  } else if (m?.[1]) {
     amount = parseFloat(m[1]);
     if (m[2]) amount *= m[2].startsWith("k") ? 1000 : 100000;
+    if (amount < 0) issue = "negative_amount";
   }
-  if (!amount) {
+  if (!amount && !issue) {
     const tokens = lower.split(/[^a-z0-9]+/).filter(Boolean);
     const wordNum = parseWordNumber(tokens);
     if (wordNum) {
       amount = wordNum.value;
       wordTokensUsed = new Set([...wordNum.used].map((i) => tokens[i]));
+      if (/\b(?:minus|negative)\b/.test(lower)) issue = "negative_amount";
     }
   }
 
@@ -160,13 +175,31 @@ export function parseExpenseText(text: string, ctx: ParseContext): ParsedExpense
   if (note && category && note.toLowerCase() === category.toLowerCase()) note = null;
 
   return {
-    amount: Math.abs(amount),
+    amount,
     currency,
     category,
     merchant,
     note: note || null,
     spent_on: spentOn,
+    issue,
   };
+}
+
+export function parsedExpenseError(parsed: ParsedExpense): string | null {
+  if (parsed.issue === "negative_amount") {
+    return "Amount must be positive. Remove the minus sign and try again.";
+  }
+  if (parsed.issue === "ambiguous_amount") {
+    return "I found more than one number. Try a simpler entry, like “dinner 450”.";
+  }
+  if (!Number.isFinite(parsed.amount) || parsed.amount <= 0) {
+    return "Couldn't find an amount in that. Try e.g. “swiggy 450”.";
+  }
+  const amountMinor = Math.round(parsed.amount * 100);
+  if (!Number.isSafeInteger(amountMinor)) {
+    return "That amount is too large to save safely.";
+  }
+  return null;
 }
 
 export function localToday(): string {
