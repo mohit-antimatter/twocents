@@ -42,7 +42,7 @@ export default function PresetChips({ presets }: { presets: PresetProp[] }) {
             key={p.id}
             onClick={() => log(p.id)}
             disabled={busyId !== null}
-            className={`flex shrink-0 items-center gap-2 rounded-full border border-hairline bg-surface px-3.5 py-2 text-sm transition-all hover:border-mint/40 hover:bg-surface2 active:scale-95 ${
+            className={`flex min-h-11 shrink-0 items-center gap-2 rounded-full border border-hairline bg-surface px-3.5 text-sm transition-all hover:border-mint/40 hover:bg-surface2 active:scale-95 ${
               busyId === p.id ? "opacity-50" : ""
             }`}
           >
@@ -55,7 +55,7 @@ export default function PresetChips({ presets }: { presets: PresetProp[] }) {
         ))}
         <Link
           href="/settings#presets"
-          className="flex shrink-0 items-center gap-1.5 rounded-full border border-dashed border-hairline px-3.5 py-2 text-sm text-mute transition-colors hover:border-mint/40 hover:text-dim"
+          className="flex min-h-11 shrink-0 items-center gap-1.5 rounded-full border border-dashed border-hairline px-3.5 text-sm text-mute transition-colors hover:border-mint/40 hover:text-dim"
         >
           <span aria-hidden>+</span> preset
         </Link>

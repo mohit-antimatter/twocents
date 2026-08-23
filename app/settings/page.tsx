@@ -1,5 +1,5 @@
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
-import Link from "next/link";
 import { db } from "@/lib/db";
 import { getSessionUser } from "@/lib/auth";
 import { getHousehold, getMembers, listPresets } from "@/lib/expenses";
@@ -9,8 +9,10 @@ import InviteManager from "@/components/InviteManager";
 import PresetManager from "@/components/PresetManager";
 import TokenManager from "@/components/TokenManager";
 import SignOutButton from "@/components/SignOutButton";
+import AppNav from "@/components/AppNav";
 
 export const dynamic = "force-dynamic";
+export const metadata: Metadata = { title: "Settings | TwoCents" };
 
 export default async function SettingsPage() {
   const user = await getSessionUser();
@@ -32,21 +34,13 @@ export default async function SettingsPage() {
     .all(user.id) as { id: string; label: string; created_at: number; last_used_at: number | null }[];
 
   return (
-    <main className="mx-auto max-w-md px-4 pb-16 pt-[max(1.25rem,env(safe-area-inset-top))]">
-      <header className="mb-7 flex items-center gap-3">
-        <Link
-          href="/"
-          className="grid h-10 w-10 place-items-center rounded-xl text-dim transition-colors hover:bg-surface hover:text-ink"
-          aria-label="Back to home"
-        >
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M15 18l-6-6 6-6" />
-          </svg>
-        </Link>
-        <h1 className="font-display text-xl font-semibold tracking-tight text-ink">Settings</h1>
+    <main className="app-page">
+      <header className="mb-8">
+        <p className="text-xs font-medium uppercase tracking-[0.16em] text-mint">TwoCents</p>
+        <h1 className="mt-1 font-display text-2xl font-semibold tracking-tight text-ink">Settings</h1>
       </header>
 
-      <div className="space-y-8">
+      <div className="grid gap-8 md:grid-cols-2 md:items-start md:gap-x-8">
         {/* Household */}
         <section>
           <h2 className="mb-3 text-xs font-medium uppercase tracking-[0.14em] text-mute">
@@ -143,6 +137,7 @@ export default async function SettingsPage() {
           </div>
         </section>
       </div>
+      <AppNav />
     </main>
   );
 }

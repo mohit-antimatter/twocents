@@ -31,36 +31,26 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="mx-auto flex min-h-dvh max-w-md flex-col justify-center px-6 pb-16">
+    <main className="mx-auto flex min-h-dvh max-w-lg flex-col justify-center px-5 py-12 sm:px-8">
       <h1 className="font-display text-3xl font-semibold tracking-tight text-ink">
         two<span className="text-mint">¢</span>ents
       </h1>
       <p className="mt-2 text-dim">The shared expense ledger for couples.</p>
 
-      <form onSubmit={submit} className="mt-8 space-y-3">
-        <input
-          type="email"
-          required
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          placeholder="Email"
-          autoComplete="email"
-          className="w-full rounded-xl border border-hairline bg-surface px-4 py-3 text-ink placeholder:text-mute focus:border-mint/50 focus:outline-none"
-        />
-        <input
-          type="password"
-          required
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          placeholder="Password"
-          autoComplete="current-password"
-          className="w-full rounded-xl border border-hairline bg-surface px-4 py-3 text-ink placeholder:text-mute focus:border-mint/50 focus:outline-none"
-        />
-        {error && <p className="text-sm text-danger">{error}</p>}
+      <form onSubmit={submit} className="mt-8 space-y-4">
+        <label className="block">
+          <span className="field-label">Email</span>
+          <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" autoComplete="email" className="field-control" />
+        </label>
+        <label className="block">
+          <span className="field-label">Password</span>
+          <input type="password" required value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Your password" autoComplete="current-password" className="field-control" />
+        </label>
+        {error && <p role="alert" className="text-sm text-danger">{error}</p>}
         <button
           type="submit"
           disabled={busy}
-          className="w-full rounded-xl bg-mint py-3 font-medium text-bg transition-opacity disabled:opacity-50"
+          className="primary-button w-full"
         >
           {busy ? "Signing in…" : "Sign in"}
         </button>

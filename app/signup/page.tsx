@@ -32,45 +32,30 @@ export default function SignupPage() {
   }
 
   return (
-    <main className="mx-auto flex min-h-dvh max-w-md flex-col justify-center px-6 pb-16">
+    <main className="mx-auto flex min-h-dvh max-w-lg flex-col justify-center px-5 py-12 sm:px-8">
       <h1 className="font-display text-3xl font-semibold tracking-tight text-ink">
         two<span className="text-mint">¢</span>ents
       </h1>
       <p className="mt-2 text-dim">Three seconds to log. Zero bank permissions.</p>
 
-      <form onSubmit={submit} className="mt-8 space-y-3">
-        <input
-          required
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          placeholder="Your first name"
-          autoComplete="given-name"
-          className="w-full rounded-xl border border-hairline bg-surface px-4 py-3 text-ink placeholder:text-mute focus:border-mint/50 focus:outline-none"
-        />
-        <input
-          type="email"
-          required
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          placeholder="Email"
-          autoComplete="email"
-          className="w-full rounded-xl border border-hairline bg-surface px-4 py-3 text-ink placeholder:text-mute focus:border-mint/50 focus:outline-none"
-        />
-        <input
-          type="password"
-          required
-          minLength={8}
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          placeholder="Password (8+ characters)"
-          autoComplete="new-password"
-          className="w-full rounded-xl border border-hairline bg-surface px-4 py-3 text-ink placeholder:text-mute focus:border-mint/50 focus:outline-none"
-        />
-        {error && <p className="text-sm text-danger">{error}</p>}
+      <form onSubmit={submit} className="mt-8 space-y-4">
+        <label className="block">
+          <span className="field-label">First name</span>
+          <input required value={name} onChange={(e) => setName(e.target.value)} placeholder="Your first name" autoComplete="given-name" className="field-control" />
+        </label>
+        <label className="block">
+          <span className="field-label">Email</span>
+          <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" autoComplete="email" className="field-control" />
+        </label>
+        <label className="block">
+          <span className="field-label">Password</span>
+          <input type="password" required minLength={8} maxLength={128} value={password} onChange={(e) => setPassword(e.target.value)} placeholder="At least 8 characters" autoComplete="new-password" className="field-control" />
+        </label>
+        {error && <p role="alert" className="text-sm text-danger">{error}</p>}
         <button
           type="submit"
           disabled={busy}
-          className="w-full rounded-xl bg-mint py-3 font-medium text-bg transition-opacity disabled:opacity-50"
+          className="primary-button w-full"
         >
           {busy ? "Creating…" : "Create account"}
         </button>

@@ -1,5 +1,5 @@
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
-import Link from "next/link";
 import { getSessionUser } from "@/lib/auth";
 import {
   getHousehold,
@@ -15,8 +15,11 @@ import { listCategories } from "@/lib/categories";
 import QuickAdd from "@/components/QuickAdd";
 import PresetChips from "@/components/PresetChips";
 import ExpenseList from "@/components/ExpenseList";
+import AppNav from "@/components/AppNav";
+import InviteManager from "@/components/InviteManager";
 
 export const dynamic = "force-dynamic";
+export const metadata: Metadata = { title: "Ledger | TwoCents" };
 
 export default async function Home({
   searchParams,
@@ -46,34 +49,11 @@ export default async function Home({
   });
 
   return (
-    <main className="mx-auto max-w-md px-4 pb-16 pt-[max(1.25rem,env(safe-area-inset-top))]">
-      <header className="mb-6 flex items-center justify-between">
+    <main className="app-page max-w-2xl">
+      <header className="mb-6">
         <h1 className="font-display text-xl font-semibold tracking-tight text-ink">
           two<span className="text-mint">¢</span>ents
         </h1>
-        <nav className="flex items-center gap-1">
-          <Link
-            href="/insights"
-            className="grid h-10 w-10 place-items-center rounded-xl text-dim transition-colors hover:bg-surface hover:text-ink"
-            aria-label="Insights"
-            title="Insights"
-          >
-            <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-              <path d="M4 20V10M10 20V4M16 20v-7M22 20H2" />
-            </svg>
-          </Link>
-          <Link
-            href="/settings"
-            className="grid h-10 w-10 place-items-center rounded-xl text-dim transition-colors hover:bg-surface hover:text-ink"
-            aria-label="Settings"
-            title="Settings"
-          >
-            <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="12" cy="12" r="3" />
-              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
-            </svg>
-          </Link>
-        </nav>
       </header>
 
       <section className="mb-6">
@@ -88,6 +68,12 @@ export default async function Home({
           {members.length > 1 && " · both of you"}
         </p>
       </section>
+
+      {members.length === 1 && recent.length === 0 && (
+        <section className="mb-6" aria-label="Partner invitation">
+          <InviteManager initialCode={hh.invite_code} canRotate={false} />
+        </section>
+      )}
 
       <section className="mb-4">
         <QuickAdd />
@@ -105,6 +91,7 @@ export default async function Home({
         categories={categories}
         initialEditId={(await searchParams)?.edit}
       />
+      <AppNav />
     </main>
   );
 }

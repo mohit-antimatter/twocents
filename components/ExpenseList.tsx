@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { formatMinor, CURRENCIES } from "@/lib/money";
 
@@ -113,12 +113,15 @@ export default function ExpenseList({
                     onKeyDown={
                       mine
                         ? (ev) => {
-                            if (ev.key === "Enter" || ev.key === " ") setEditing(e);
+                            if (ev.key === "Enter" || ev.key === " ") {
+                              ev.preventDefault();
+                              setEditing(e);
+                            }
                           }
                         : undefined
                     }
                     aria-label={mine ? `Edit ${title}` : undefined}
-                    className={`flex items-center gap-3 px-3.5 py-3 ${
+                    className={`flex min-h-14 items-center gap-3 px-3.5 py-3 ${
                       mine ? "cursor-pointer transition-colors hover:bg-surface2/60" : ""
                     }`}
                   >
@@ -130,7 +133,7 @@ export default function ExpenseList({
                       {e.category_emoji ?? "🧾"}
                     </span>
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-[15px] text-ink">{title}</p>
+                      <p className="truncate text-base text-ink">{title}</p>
                       <p className="flex items-center gap-1.5 truncate text-xs text-mute">
                         <span
                           aria-hidden
@@ -140,7 +143,7 @@ export default function ExpenseList({
                         {sub}
                       </p>
                     </div>
-                    <span className="font-money text-[15px] tabular-nums text-ink">
+                    <span className="font-money text-base tabular-nums text-ink">
                       {formatMinor(e.amount_minor, e.currency)}
                     </span>
                     {mine && (
@@ -201,6 +204,46 @@ function EditSheet({
   const [spentTime, setSpentTime] = useState(expense.spent_time ?? "");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const amountRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    const previousFocus = document.activeElement as HTMLElement | null;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    amountRef.current?.focus();
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        onClose();
+        return;
+      }
+      if (event.key !== "Tab") return;
+      const focusable = Array.from(
+        dialogRef.current?.querySelectorAll<HTMLElement>(
+          'button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [href], [tabindex]:not([tabindex="-1"])'
+        ) ?? []
+      );
+      if (focusable.length === 0) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    }
+
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+      document.body.style.overflow = previousOverflow;
+      previousFocus?.focus();
+    };
+  }, [onClose]);
 
   async function save() {
     setBusy(true);
@@ -239,27 +282,29 @@ function EditSheet({
     }
   }
 
-  const inputCls =
-    "rounded-xl border border-hairline bg-bg px-3 py-2.5 text-[15px] text-ink placeholder:text-mute focus:border-mint/50 focus:outline-none";
+  const inputCls = "field-control bg-bg";
 
   return (
     <div
       className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 sm:items-center"
-      onClick={onClose}
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) onClose();
+      }}
       role="dialog"
       aria-modal="true"
-      aria-label="Edit expense"
+      aria-labelledby="edit-expense-title"
     >
       <div
-        onClick={(ev) => ev.stopPropagation()}
-        className="rise-in w-full max-w-md rounded-t-3xl border border-hairline bg-surface p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] sm:rounded-3xl"
+        ref={dialogRef}
+        className="rise-in max-h-[calc(100dvh-1rem)] w-full max-w-md overflow-y-auto rounded-t-3xl border border-hairline bg-surface p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] sm:rounded-3xl"
       >
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="font-display text-lg font-semibold text-ink">Edit expense</h2>
+          <h2 id="edit-expense-title" className="font-display text-lg font-semibold text-ink">Edit expense</h2>
           <button
+            type="button"
             onClick={onClose}
             aria-label="Close"
-            className="grid h-9 w-9 place-items-center rounded-xl text-dim hover:bg-surface2 hover:text-ink"
+            className="icon-button"
           >
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
               <path d="M6 6l12 12M18 6L6 18" />
@@ -267,101 +312,72 @@ function EditSheet({
           </button>
         </div>
 
-        <div className="space-y-3">
-          <div className="flex gap-2">
-            <select
-              value={currency}
-              onChange={(e) => setCurrency(e.target.value)}
-              aria-label="Currency"
-              className={`${inputCls} w-32 shrink-0`}
-            >
-              {Object.keys(CURRENCIES).map((c) => (
-                <option key={c} value={c}>
-                  {CURRENCIES[c].symbol} {c}
-                </option>
-              ))}
+        <form onSubmit={(event) => { event.preventDefault(); void save(); }} className="space-y-4">
+          <div className="grid grid-cols-[8rem_1fr] gap-2">
+            <label>
+              <span className="field-label">Currency</span>
+              <select value={currency} onChange={(e) => setCurrency(e.target.value)} className={inputCls}>
+                {Object.keys(CURRENCIES).map((c) => <option key={c} value={c}>{CURRENCIES[c].symbol} {c}</option>)}
+              </select>
+            </label>
+            <label>
+              <span className="field-label">Amount</span>
+              <input ref={amountRef} value={amount} onChange={(e) => setAmount(e.target.value)} inputMode="decimal" className={`${inputCls} text-right font-money tabular-nums`} />
+            </label>
+          </div>
+
+          <label className="block">
+            <span className="field-label">Category</span>
+            <select value={categoryId} onChange={(e) => setCategoryId(e.target.value)} className={inputCls}>
+              <option value="">No category</option>
+              {categories.map((c) => <option key={c.id} value={c.id}>{c.emoji} {c.name}</option>)}
             </select>
-            <input
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-              inputMode="decimal"
-              aria-label="Amount"
-              className={`${inputCls} min-w-0 flex-1 text-right font-money tabular-nums`}
-            />
+          </label>
+
+          <label className="block">
+            <span className="field-label">Merchant or title</span>
+            <input value={merchant} onChange={(e) => setMerchant(e.target.value)} placeholder="For example, Swiggy" className={inputCls} />
+          </label>
+          <label className="block">
+            <span className="field-label">Note <span className="font-normal text-mute">(optional)</span></span>
+            <input value={note} onChange={(e) => setNote(e.target.value)} placeholder="Add context for both of you" className={inputCls} />
+          </label>
+
+          <div className="grid grid-cols-[1fr_8rem] gap-2">
+            <label><span className="field-label">Date</span><input type="date" value={spentOn} onChange={(e) => setSpentOn(e.target.value)} className={inputCls} /></label>
+            <label><span className="field-label">Time</span><input type="time" value={spentTime} onChange={(e) => setSpentTime(e.target.value)} className={inputCls} /></label>
           </div>
 
-          <select
-            value={categoryId}
-            onChange={(e) => setCategoryId(e.target.value)}
-            aria-label="Category"
-            className={`${inputCls} w-full`}
-          >
-            <option value="">No category</option>
-            {categories.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.emoji} {c.name}
-              </option>
-            ))}
-          </select>
-
-          <input
-            value={merchant}
-            onChange={(e) => setMerchant(e.target.value)}
-            placeholder="Merchant / title (e.g. Swiggy)"
-            className={`${inputCls} w-full`}
-          />
-          <input
-            value={note}
-            onChange={(e) => setNote(e.target.value)}
-            placeholder="Note (optional)"
-            className={`${inputCls} w-full`}
-          />
-
-          <div className="flex gap-2">
-            <input
-              type="date"
-              value={spentOn}
-              onChange={(e) => setSpentOn(e.target.value)}
-              aria-label="Date of spend"
-              className={`${inputCls} min-w-0 flex-1`}
-            />
-            <input
-              type="time"
-              value={spentTime}
-              onChange={(e) => setSpentTime(e.target.value)}
-              aria-label="Time of spend"
-              className={`${inputCls} w-32 shrink-0`}
-            />
-          </div>
-
-          {error && <p className="text-sm text-danger">{error}</p>}
+          {error && <p role="alert" className="text-sm text-danger">{error}</p>}
 
           <div className="flex items-center justify-between pt-1">
             <button
+              type="button"
               onClick={remove}
               disabled={busy}
-              className="rounded-xl border border-hairline px-4 py-2.5 text-sm text-dim transition-colors hover:border-danger/40 hover:text-danger disabled:opacity-50"
+              className="min-h-11 rounded-xl border border-hairline px-4 text-sm text-dim transition-colors hover:border-danger/40 hover:text-danger disabled:opacity-50"
             >
               Delete
             </button>
             <div className="flex gap-2">
               <button
+                type="button"
                 onClick={onClose}
                 disabled={busy}
-                className="rounded-xl border border-hairline px-4 py-2.5 text-sm text-dim hover:text-ink disabled:opacity-50"
+                className="min-h-11 rounded-xl border border-hairline px-4 text-sm text-dim hover:text-ink disabled:opacity-50"
               >
                 Cancel
               </button>
               <button
-                onClick={save}
+                type="submit"
                 disabled={busy}
-                className="rounded-xl bg-mint px-5 py-2.5 text-sm font-medium text-bg transition-opacity disabled:opacity-50"
+                className="min-h-11 rounded-xl bg-mint px-5 text-sm font-medium text-bg transition-opacity disabled:opacity-50"
               >
                 {busy ? "Saving…" : "Save"}
               </button>
             </div>
           </div>
-        </div>
+        </form>
       </div>
     </div>
   );

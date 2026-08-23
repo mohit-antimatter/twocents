@@ -13,7 +13,7 @@
   --surface-2: #1e2721;
   --ink: #f1eee4;
   --ink-dim: #a8b0a6;
-  --ink-mute: #6b7a70;
+  --ink-mute: #89938c;
   --mint: #7fe0b2;
   --amber: #f0b860;
   --danger: #ff8577;
@@ -44,8 +44,32 @@ body {
 }
 
 input,
-button {
+button,
+select,
+textarea {
   font: inherit;
+}
+
+@layer components {
+  .app-page {
+    @apply mx-auto max-w-3xl px-4 pb-28 pt-[max(1.25rem,env(safe-area-inset-top))] sm:px-6 lg:max-w-4xl lg:px-8 lg:pb-16;
+  }
+
+  .field-label {
+    @apply mb-1.5 block text-sm font-medium text-dim;
+  }
+
+  .field-control {
+    @apply min-h-12 w-full rounded-xl border border-hairline bg-surface px-4 py-3 text-base text-ink placeholder:text-mute transition-colors focus:border-mint focus:outline-none disabled:opacity-50;
+  }
+
+  .primary-button {
+    @apply min-h-12 rounded-xl bg-mint px-5 font-medium text-bg transition-[filter] hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-50;
+  }
+
+  .icon-button {
+    @apply grid h-11 w-11 shrink-0 place-items-center rounded-xl text-dim transition-colors hover:bg-surface2 hover:text-ink;
+  }
 }
 
 @keyframes rise-in {

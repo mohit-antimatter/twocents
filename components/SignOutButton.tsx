@@ -31,7 +31,7 @@ export default function SignOutButton() {
           type="button"
           disabled={busy !== null}
           onClick={() => signOut(false)}
-          className="rounded-xl border border-hairline px-4 py-2.5 text-sm text-dim transition-colors hover:border-danger/40 hover:text-danger disabled:opacity-50"
+          className="min-h-11 rounded-xl border border-hairline px-4 text-sm text-dim transition-colors hover:border-danger/40 hover:text-danger disabled:opacity-50"
         >
           {busy === "current" ? "Signing out…" : "Sign out"}
         </button>
@@ -39,7 +39,7 @@ export default function SignOutButton() {
           type="button"
           disabled={busy !== null}
           onClick={() => signOut(true)}
-          className="rounded-xl border border-hairline px-4 py-2.5 text-sm text-dim transition-colors hover:border-danger/40 hover:text-danger disabled:opacity-50"
+          className="min-h-11 rounded-xl border border-hairline px-4 text-sm text-dim transition-colors hover:border-danger/40 hover:text-danger disabled:opacity-50"
         >
           {busy === "all" ? "Signing out…" : "Sign out everywhere"}
         </button>

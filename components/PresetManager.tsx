@@ -69,7 +69,7 @@ export default function PresetManager({
       {presets.length > 0 && (
         <ul className="divide-y divide-hairline overflow-hidden rounded-xl border border-hairline bg-surface2">
           {presets.map((p) => (
-            <li key={p.id} className="flex items-center gap-3 px-3.5 py-2.5 text-sm">
+            <li key={p.id} className="flex min-h-14 items-center gap-3 px-3.5 py-2 text-sm">
               <span aria-hidden>{p.emoji}</span>
               <span className="flex-1 text-ink">{p.label}</span>
               <span className="font-money tabular-nums text-dim">
@@ -78,7 +78,7 @@ export default function PresetManager({
               <button
                 onClick={() => remove(p.id)}
                 aria-label={`Delete preset ${p.label}`}
-                className="grid h-7 w-7 place-items-center rounded-lg text-mute hover:text-danger"
+                className="grid h-11 w-11 place-items-center rounded-xl text-mute hover:bg-bg hover:text-danger"
               >
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
                   <path d="M6 6l12 12M18 6L6 18" />
@@ -89,38 +89,22 @@ export default function PresetManager({
         </ul>
       )}
 
-      <form onSubmit={add} className="space-y-2">
-        <div className="flex gap-2">
-          <input
-            value={emoji}
-            onChange={(e) => setEmoji(e.target.value)}
-            aria-label="Emoji"
-            className="w-14 rounded-xl border border-hairline bg-surface px-0 py-2.5 text-center focus:border-mint/50 focus:outline-none"
-          />
-          <input
-            required
-            value={label}
-            onChange={(e) => setLabel(e.target.value)}
-            placeholder="Label (e.g. Morning coffee)"
-            className="min-w-0 flex-1 rounded-xl border border-hairline bg-surface px-3 py-2.5 text-sm text-ink placeholder:text-mute focus:border-mint/50 focus:outline-none"
-          />
-          <input
-            required
-            value={amount}
-            onChange={(e) => setAmount(e.target.value)}
-            inputMode="decimal"
-            placeholder="250"
-            aria-label="Amount"
-            className="w-20 rounded-xl border border-hairline bg-surface px-3 py-2.5 text-right font-money text-sm text-ink placeholder:text-mute focus:border-mint/50 focus:outline-none"
-          />
-        </div>
-        <div className="flex gap-2">
-          <select
-            value={categoryId}
-            onChange={(e) => setCategoryId(e.target.value)}
-            aria-label="Category"
-            className="min-w-0 flex-1 rounded-xl border border-hairline bg-surface px-3 py-2.5 text-sm text-ink focus:border-mint/50 focus:outline-none"
-          >
+      <form onSubmit={add} className="grid gap-3 sm:grid-cols-[5rem_1fr_7rem]">
+        <label>
+          <span className="field-label">Emoji</span>
+          <input value={emoji} onChange={(e) => setEmoji(e.target.value)} className="field-control px-0 text-center" />
+        </label>
+        <label>
+          <span className="field-label">Label</span>
+          <input required value={label} onChange={(e) => setLabel(e.target.value)} placeholder="Morning coffee" className="field-control" />
+        </label>
+        <label>
+          <span className="field-label">Amount</span>
+          <input required value={amount} onChange={(e) => setAmount(e.target.value)} inputMode="decimal" placeholder="250" className="field-control text-right font-money" />
+        </label>
+        <label className="sm:col-span-2">
+          <span className="field-label">Category</span>
+          <select value={categoryId} onChange={(e) => setCategoryId(e.target.value)} className="field-control">
             <option value="">Pick a category…</option>
             {categories.map((c) => (
               <option key={c.id} value={c.id}>
@@ -128,15 +112,17 @@ export default function PresetManager({
               </option>
             ))}
           </select>
+        </label>
+        <div className="flex items-end">
           <button
             type="submit"
             disabled={busy}
-            className="rounded-xl bg-mint px-4 py-2.5 text-sm font-medium text-bg transition-opacity disabled:opacity-50"
+            className="primary-button w-full"
           >
             Add
           </button>
         </div>
-        {error && <p className="text-sm text-danger">{error}</p>}
+        {error && <p role="alert" className="text-sm text-danger sm:col-span-3">{error}</p>}
       </form>
     </div>
   );

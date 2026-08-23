@@ -43,14 +43,15 @@ export default function TokenManager({ initialTokens }: { initialTokens: TokenRo
       {tokens.length > 0 && (
         <ul className="divide-y divide-hairline overflow-hidden rounded-xl border border-hairline bg-surface2">
           {tokens.map((t) => (
-            <li key={t.id} className="flex items-center gap-3 px-3.5 py-2.5 text-sm">
+            <li key={t.id} className="flex min-h-14 items-center gap-3 px-3.5 py-1.5 text-sm">
               <span className="flex-1 text-ink">{t.label}</span>
               <span className="text-xs text-mute">
                 {t.last_used_at ? "used " + new Date(t.last_used_at).toLocaleDateString() : "never used"}
               </span>
               <button
+                type="button"
                 onClick={() => revoke(t.id)}
-                className="text-xs text-mute hover:text-danger"
+                className="min-h-11 rounded-xl px-3 text-xs text-mute hover:bg-bg hover:text-danger"
               >
                 Revoke
               </button>
@@ -73,9 +74,10 @@ export default function TokenManager({ initialTokens }: { initialTokens: TokenRo
         </div>
       ) : (
         <button
+          type="button"
           onClick={create}
           disabled={busy}
-          className="rounded-xl border border-hairline px-4 py-2.5 text-sm text-ink transition-colors hover:border-mint/40 disabled:opacity-50"
+          className="min-h-11 rounded-xl border border-hairline px-4 text-sm text-ink transition-colors hover:border-mint/40 disabled:opacity-50"
         >
           {busy ? "Generating…" : "Generate a Shortcut token"}
         </button>

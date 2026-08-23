@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { getSessionUser } from "@/lib/auth";
@@ -5,8 +6,10 @@ import { getHousehold, getMembers, getMonthSummary, prevMonth, nextMonth } from 
 import { formatMinor } from "@/lib/money";
 import { personColorMap } from "@/lib/colors";
 import { localToday } from "@/lib/parse";
+import AppNav from "@/components/AppNav";
 
 export const dynamic = "force-dynamic";
+export const metadata: Metadata = { title: "Insights | TwoCents" };
 
 // Chart chrome (dark), from the validated reference instance.
 const GRID = "#2c2c2a";
@@ -61,21 +64,16 @@ export default async function InsightsPage({
   const restTotal = s.byCategory.slice(8).reduce((sum, c) => sum + c.totalMinor, 0);
 
   return (
-    <main className="mx-auto max-w-md px-4 pb-16 pt-[max(1.25rem,env(safe-area-inset-top))]">
+    <main className="app-page">
       <header className="mb-6 flex items-center justify-between">
-        <Link
-          href="/"
-          className="grid h-10 w-10 place-items-center rounded-xl text-dim transition-colors hover:bg-surface hover:text-ink"
-          aria-label="Back to home"
-        >
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M15 18l-6-6 6-6" />
-          </svg>
-        </Link>
+        <div>
+          <p className="text-xs font-medium uppercase tracking-[0.16em] text-mint">TwoCents</p>
+          <h1 className="mt-1 font-display text-2xl font-semibold tracking-tight text-ink">Insights</h1>
+        </div>
         <div className="flex items-center gap-1">
           <Link
             href={`/insights?m=${prevMonth(month)}`}
-            className="grid h-9 w-9 place-items-center rounded-lg text-dim hover:bg-surface hover:text-ink"
+            className="grid h-11 w-11 place-items-center rounded-xl text-dim hover:bg-surface hover:text-ink"
             aria-label="Previous month"
           >
             ‹
@@ -84,16 +82,15 @@ export default async function InsightsPage({
           {month < currentMonth ? (
             <Link
               href={`/insights?m=${nextMonth(month)}`}
-              className="grid h-9 w-9 place-items-center rounded-lg text-dim hover:bg-surface hover:text-ink"
+              className="grid h-11 w-11 place-items-center rounded-xl text-dim hover:bg-surface hover:text-ink"
               aria-label="Next month"
             >
               ›
             </Link>
           ) : (
-            <span className="grid h-9 w-9 place-items-center text-mute/40">›</span>
+            <span className="grid h-11 w-11 place-items-center text-mute/40">›</span>
           )}
         </div>
-        <span className="w-10" aria-hidden />
       </header>
 
       {/* Hero */}
@@ -240,6 +237,7 @@ export default async function InsightsPage({
           )}
         </>
       )}
+      <AppNav />
     </main>
   );
 }
