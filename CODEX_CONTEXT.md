@@ -19,7 +19,7 @@ TwoCents is a **shared household expense ledger for couples** — a product from
 
 ## Current state (all browser-verified)
 
-Working end to end: signup/login (cookie sessions, bcrypt) → household create/join via invite code → NL quick-add (`swiggy 450`, `uber 340 yesterday`, `petrol 2k`, `$40 dinner`, `three hundred on chai`) → voice entry with transcript review before saving (Web Speech API feeding the same parser; needs HTTPS so works on localhost but not LAN-IP) → structured capture confirmation with Undo/Edit → one-tap presets → weekly/monthly recurring schedules → shared ledger with per-person dots → tap-to-edit sheet (amount, currency, category, merchant, note, date, time; delete inside sheet) → insights (month nav, hero total + delta vs prev month, daily bars, category bars, who-paid split) → settings (invite code, presets CRUD, recurring schedules, API tokens, Shortcuts setup guide) → Shortcuts endpoint (bearer auth; returns `{"message": "₹450 · 🍜 Food & Drinks · Swiggy ✓"}` for the notification).
+Working end to end: signup/login (cookie sessions, bcrypt) → household create/join via invite code → NL quick-add (`swiggy 450`, `uber 340 yesterday`, `petrol 2k`, `$40 dinner`, `three hundred on chai`) → voice entry with transcript review before saving (Web Speech API feeding the same parser; needs HTTPS so works on localhost but not LAN-IP) → structured capture confirmation with Undo/Edit → one-tap presets → weekly/monthly recurring schedules → shared ledger with per-person dots → tap-to-edit sheet (amount, currency, category, merchant, note, date, time; delete inside sheet) → insights (month nav, hero total + delta vs prev month, daily bars, expandable category/title breakdowns, who-paid split) → settings (invite code, presets CRUD, recurring schedules, API tokens, Shortcuts setup guide) → Shortcuts endpoint (bearer auth; returns `{"message": "₹450 · 🍜 Food & Drinks · Swiggy ✓"}` for the notification).
 
 Capture trust work completed and browser-verified on 2026-08-22: negative and multi-number inputs are rejected instead of guessed; malformed dates/times, unsafe amounts, and cross-household category IDs are rejected; web captures use a per-request idempotency key; successful captures expose Undo and Edit; voice no longer auto-saves. Regression suite: `npm test` (12 tests at time of update).
 
@@ -35,6 +35,8 @@ Recurring expenses were completed and browser-verified on 2026-08-23. Either par
 
 Gentle category guides were completed and browser-verified on 2026-08-23. Either partner can set, edit, or remove a shared monthly amount for a category in the household home currency. Home shows the three categories most ahead of an even month-to-date pace; current-month Insights shows every active guide. Copy stays neutral (ahead, breathing room, or close to pace), the progress track marks both spend and elapsed month, and no hard-stop or red failure state is used. Future-dated expenses are excluded and multi-currency expenses use their capture-time FX snapshot. Regression suite: `npm test` (40 tests at time of update); household scoping, validation, existing-database migration, future-date exclusion, unauthenticated API rejection, create/edit/remove, responsive UI, console checks, TypeScript, lint, and production build pass.
 
+Household-help categorization and Insights drill-downs were completed and browser-verified on 2026-08-23. Household Help is a dedicated neutral category for maid, cook, nanny, driver, cleaner, housekeeper/housekeeping, babysitter, gardener, and laundry; it is seeded for new households and idempotently backfilled for existing ones. Insights category rows now expand without client JavaScript to group that month’s expenses by merchant/title, case-insensitively, with counts and home-currency totals. This is deliberately a view over existing titles, not a formal subcategory system. Regression suite: `npm test` (42 tests at time of update); parser roles, existing-household migration/idempotency, household-scoped title grouping, responsive collapsed/expanded UI, keyboard focusability, console checks, TypeScript, lint, and production build pass.
+
 ## Architecture / file map
 
 - `lib/db.ts` — better-sqlite3 singleton (`global.__twocents_db`), schema (Postgres-compatible: TEXT ids, INTEGER ms), and `migrate()` for additive ALTERs. Web captures store a nullable `request_id` with a per-user unique index for idempotency; recurring charges store `recurring_rule_id` with a per-rule/date unique index.
@@ -42,8 +44,8 @@ Gentle category guides were completed and browser-verified on 2026-08-23. Either
 - `lib/rate-limit.ts` — database-backed fixed-window limits for auth/invite/token abuse; request identifiers are HMACed before storage.
 - `lib/households.ts` — transactional household creation/joining, two-person enforcement, single-use invite rotation, and owner-only manual invite replacement.
 - `lib/parse.ts` — THE parsing brain. Every capture surface funnels here. Currency symbols/words, digit + `k`/`lakh` shorthand, spelled-out word-numbers, date words (yesterday/day before/weekdays), category+merchant from `CATEGORY_KEYWORDS`.
-- `lib/categories.ts` — default category set with chart colors + the keyword dictionary.
-- `lib/expenses.ts` — all expense ops: create-from-parsed (stamps `spent_time` only when spent_on == today), update/delete with creator checks, month summaries, presets.
+- `lib/categories.ts` — default category set with chart colors + the keyword dictionary, including the dedicated neutral Household Help category and role terms.
+- `lib/expenses.ts` — all expense ops: create-from-parsed (stamps `spent_time` only when spent_on == today), update/delete with creator checks, month summaries with case-insensitive merchant/title groupings, presets.
 - `lib/recurring.ts` — validates and manages weekly/monthly schedules, advances monthly anchor dates, and transactionally materializes due charges without duplicates.
 - `lib/budgets.ts` — validates shared category guides, enforces household scope, rolls current-month expenses into home currency, and calculates neutral pace/projection values.
 - `lib/money.ts` — currency table, static per-USD rates, `formatMinor` (en-IN grouping for INR).
@@ -71,13 +73,11 @@ Money rule: integers in minor units; `home_minor = round(amount_minor * fx_to_ho
 
 ## Roadmap (research-ranked; see docs/market-research.md)
 
-Completed: CSV export; glanceable spend-so-far vs typical-by-this-date pace; recurring expenses; gentle per-category guides.
+Completed: CSV export; glanceable spend-so-far vs typical-by-this-date pace; recurring expenses; gentle per-category guides; Household Help categorization; Insights category/title drill-downs.
 
-1. Private-expense flag (mixed-finances couples: counted, but details hidden from partner)
-2. Insights drill-down within a category grouped by title (proposed to owner as the no-friction alternative to formal subcategories — owner has NOT yet approved; formal subcategories, if ever, must be optional + keyword-auto-assigned)
-3. Deployment: GitHub done; next is Vercel + Postgres swap (schema is ready) — owner is deployment-beginner, explain steps plainly.
+1. Deployment: GitHub done; next is Vercel + Postgres swap (schema is ready) — owner is deployment-beginner, explain steps plainly.
 
-Known parser gap the owner flagged: household-help words (`cook`, `nanny`, `driver`…) aren't in `CATEGORY_KEYWORDS` → land in Other ("maid" is mapped). Fix pending as part of the owner's next feedback batch — consider a dedicated Household Help category.
+Deferred by the owner: private expenses are not needed for now. Formal subcategories are also unnecessary unless later evidence supports them; the expandable title grouping covers the current need without adding capture friction.
 
 ## Working with the owner
 

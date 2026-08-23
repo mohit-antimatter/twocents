@@ -15,6 +15,7 @@ export const DEFAULT_CATEGORIES: { name: string; emoji: string; color: string }[
   { name: "Kids & Education", emoji: "🎓", color: "#6B7A70" },
   { name: "Subscriptions", emoji: "📺", color: "#6B7A70" },
   { name: "Personal Care", emoji: "💇", color: "#6B7A70" },
+  { name: "Household Help", emoji: "🧹", color: "#6B7A70" },
   { name: "Other", emoji: "🌀", color: "#6B7A70" },
 ];
 
@@ -38,8 +39,13 @@ export const CATEGORY_KEYWORDS: Record<string, string> = {
   shopping: "Shopping", clothes: "Shopping", shoes: "Shopping", ikea: "Shopping",
 
   rent: "Housing & Bills", electricity: "Housing & Bills", wifi: "Housing & Bills",
-  internet: "Housing & Bills", gas: "Housing & Bills", maid: "Housing & Bills",
+  internet: "Housing & Bills", gas: "Housing & Bills",
   maintenance: "Housing & Bills", water: "Housing & Bills", bill: "Housing & Bills",
+
+  maid: "Household Help", cook: "Household Help", nanny: "Household Help",
+  driver: "Household Help", cleaner: "Household Help", housekeeper: "Household Help",
+  housekeeping: "Household Help", babysitter: "Household Help",
+  gardener: "Household Help", laundry: "Household Help",
 
   movie: "Entertainment", pvr: "Entertainment", concert: "Entertainment",
   game: "Entertainment", bowling: "Entertainment", tickets: "Entertainment",

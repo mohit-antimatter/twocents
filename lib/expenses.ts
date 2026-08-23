@@ -276,7 +276,13 @@ export type MonthSummary = {
   month: string; // YYYY-MM
   totalMinor: number;
   prevTotalMinor: number;
-  byCategory: { name: string; emoji: string; color: string; totalMinor: number }[];
+  byCategory: {
+    name: string;
+    emoji: string;
+    color: string;
+    totalMinor: number;
+    titles: { title: string; totalMinor: number; count: number }[];
+  }[];
   byPerson: { id: string; name: string; totalMinor: number }[];
   byDay: { day: string; totalMinor: number }[];
   count: number;
@@ -307,7 +313,8 @@ export function nextMonth(month: string): string {
 export function getMonthSummary(householdId: string, month: string): MonthSummary {
   const rows = db()
     .prepare(
-      `SELECT e.amount_minor, e.fx_to_home, e.spent_on, e.user_id, u.name AS user_name,
+      `SELECT e.amount_minor, e.fx_to_home, e.spent_on, e.user_id, e.merchant, e.note,
+              u.name AS user_name,
               c.name AS category_name, c.emoji AS category_emoji, c.color AS category_color
        FROM expenses e
        JOIN users u ON u.id = e.user_id
@@ -320,13 +327,24 @@ export function getMonthSummary(householdId: string, month: string): MonthSummar
     spent_on: string;
     user_id: string;
     user_name: string;
+    merchant: string | null;
+    note: string | null;
     category_name: string | null;
     category_emoji: string | null;
     category_color: string | null;
   }[];
 
   let total = 0;
-  const cats = new Map<string, { name: string; emoji: string; color: string; totalMinor: number }>();
+  const cats = new Map<
+    string,
+    {
+      name: string;
+      emoji: string;
+      color: string;
+      totalMinor: number;
+      titles: Map<string, { title: string; totalMinor: number; count: number }>;
+    }
+  >();
   const people = new Map<string, { id: string; name: string; totalMinor: number }>();
   const days = new Map<string, number>();
 
@@ -340,8 +358,15 @@ export function getMonthSummary(householdId: string, month: string): MonthSummar
       emoji: r.category_emoji ?? "🧾",
       color: r.category_color ?? "#6B7A70",
       totalMinor: 0,
+      titles: new Map(),
     };
     c.totalMinor += home;
+    const title = r.merchant?.trim() || r.note?.trim() || "Other expenses";
+    const titleKey = title.toLocaleLowerCase("en");
+    const titleGroup = c.titles.get(titleKey) ?? { title, totalMinor: 0, count: 0 };
+    titleGroup.totalMinor += home;
+    titleGroup.count += 1;
+    c.titles.set(titleKey, titleGroup);
     cats.set(cname, c);
 
     const p = people.get(r.user_id) ?? { id: r.user_id, name: r.user_name, totalMinor: 0 };
@@ -355,7 +380,14 @@ export function getMonthSummary(householdId: string, month: string): MonthSummar
     month,
     totalMinor: total,
     prevTotalMinor: monthTotal(householdId, prevMonth(month)),
-    byCategory: [...cats.values()].sort((a, b) => b.totalMinor - a.totalMinor),
+    byCategory: [...cats.values()]
+      .map(({ titles, ...category }) => ({
+        ...category,
+        titles: [...titles.values()].sort(
+          (a, b) => b.totalMinor - a.totalMinor || a.title.localeCompare(b.title)
+        ),
+      }))
+      .sort((a, b) => b.totalMinor - a.totalMinor),
     byPerson: [...people.values()].sort((a, b) => b.totalMinor - a.totalMinor),
     byDay: [...days.entries()]
       .map(([day, totalMinor]) => ({ day, totalMinor }))

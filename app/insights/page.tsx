@@ -65,8 +65,6 @@ export default async function InsightsPage({
   const barW = (W - gap * (daysInMonth - 1)) / daysInMonth;
 
   const maxCat = Math.max(1, ...s.byCategory.map((c) => c.totalMinor));
-  const topCats = s.byCategory.slice(0, 8);
-  const restTotal = s.byCategory.slice(8).reduce((sum, c) => sum + c.totalMinor, 0);
 
   return (
     <main className="app-page">
@@ -167,38 +165,57 @@ export default async function InsightsPage({
 
           {/* Where it went */}
           <section className="mb-8">
-            <h2 className="mb-3 text-xs font-medium uppercase tracking-[0.14em] text-mute">
+            <h2 className="mb-1 text-xs font-medium uppercase tracking-[0.14em] text-mute">
               Where it went
             </h2>
-            <div className="space-y-3 rounded-2xl border border-hairline bg-surface p-4">
-              {topCats.map((c) => (
-                <div key={c.name} className="grid grid-cols-[1fr_auto] items-center gap-x-3 gap-y-1">
-                  <p className="truncate text-sm text-ink">
-                    <span aria-hidden className="mr-1.5">{c.emoji}</span>
-                    {c.name}
-                  </p>
-                  <p className="font-money text-sm tabular-nums text-ink">
-                    {formatMinor(c.totalMinor, hh.home_currency)}
-                  </p>
-                  <div className="col-span-2 h-2.5 overflow-hidden rounded-r">
-                    <div
-                      className="h-full rounded-r"
-                      style={{
-                        width: `${Math.max(2, (c.totalMinor / maxCat) * 100)}%`,
-                        backgroundColor: c.color,
-                      }}
-                    />
-                  </div>
-                </div>
-              ))}
-              {restTotal > 0 && (
-                <div className="grid grid-cols-[1fr_auto] items-center gap-x-3 pt-1 text-mute">
-                  <p className="text-sm">Everything else</p>
-                  <p className="font-money text-sm tabular-nums">
-                    {formatMinor(restTotal, hh.home_currency)}
-                  </p>
-                </div>
-              )}
+            <p className="mb-3 text-xs text-mute">Open a category to see what made up the total.</p>
+            <div className="divide-y divide-hairline overflow-hidden rounded-2xl border border-hairline bg-surface">
+              {s.byCategory.map((c) => {
+                const expenseCount = c.titles.reduce((sum, title) => sum + title.count, 0);
+                return (
+                  <details key={c.name} className="group">
+                    <summary className="min-h-16 cursor-pointer list-none px-4 py-3.5 marker:content-none hover:bg-surface2 focus-visible:bg-surface2">
+                      <div className="flex items-baseline gap-3">
+                        <p className="min-w-0 flex-1 truncate text-sm text-ink">
+                          <span aria-hidden className="mr-1.5">{c.emoji}</span>
+                          {c.name}
+                        </p>
+                        <p className="shrink-0 font-money text-sm tabular-nums text-ink">
+                          {formatMinor(c.totalMinor, hh.home_currency)}
+                        </p>
+                        <span aria-hidden className="shrink-0 text-base text-mint transition-transform group-open:rotate-45">+</span>
+                      </div>
+                      <div className="mt-2.5 h-2 overflow-hidden rounded-r bg-bg">
+                        <div
+                          className="h-full rounded-r"
+                          style={{
+                            width: `${Math.max(2, (c.totalMinor / maxCat) * 100)}%`,
+                            backgroundColor: c.color,
+                          }}
+                        />
+                      </div>
+                      <p className="mt-2 text-xs text-mute">
+                        {c.titles.length} {c.titles.length === 1 ? "group" : "groups"} · {expenseCount} {expenseCount === 1 ? "expense" : "expenses"}
+                      </p>
+                    </summary>
+                    <ul className="divide-y divide-hairline border-t border-hairline bg-bg/35 px-4">
+                      {c.titles.map((title) => (
+                        <li key={title.title.toLocaleLowerCase("en")} className="flex min-h-12 items-center gap-3 py-2">
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate text-sm text-ink">{title.title}</p>
+                            <p className="mt-0.5 text-xs text-mute">
+                              {title.count} {title.count === 1 ? "expense" : "expenses"}
+                            </p>
+                          </div>
+                          <p className="shrink-0 font-money text-sm tabular-nums text-dim">
+                            {formatMinor(title.totalMinor, hh.home_currency)}
+                          </p>
+                        </li>
+                      ))}
+                    </ul>
+                  </details>
+                );
+              })}
             </div>
           </section>
 

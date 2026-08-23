@@ -4,7 +4,7 @@ import test from "node:test";
 import { parseExpenseText, parsedExpenseError, type ParseContext } from "../lib/parse";
 
 const context: ParseContext = {
-  categories: ["Food & Drinks", "Groceries", "Transport", "Other"],
+  categories: ["Food & Drinks", "Groceries", "Transport", "Household Help", "Other"],
   homeCurrency: "INR",
   today: "2026-08-22",
 };
@@ -35,6 +35,14 @@ test("parses the supported fast-entry formats", () => {
   const shorthand = parse("petrol 1.2k");
   assert.equal(shorthand.amount, 1200);
   assert.equal(shorthand.issue, null);
+});
+
+test("recognizes common household-help roles", () => {
+  for (const role of ["maid", "cook", "nanny", "driver", "cleaner", "babysitter"]) {
+    const parsed = parse(`${role} 1500`);
+    assert.equal(parsed.category, "Household Help", role);
+    assert.equal(parsed.merchant, role.charAt(0).toUpperCase() + role.slice(1), role);
+  }
 });
 
 test("rejects negative amounts instead of silently making them positive", () => {

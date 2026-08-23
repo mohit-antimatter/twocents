@@ -143,6 +143,27 @@ export function migrate(d: Database.Database) {
   if (!categoryCols.some((column) => column.name === "budget_minor")) {
     d.exec("ALTER TABLE categories ADD COLUMN budget_minor INTEGER");
   }
+  d.exec(`
+    UPDATE categories
+    SET sort = sort + 1
+    WHERE name = 'Other'
+      AND household_id IN (
+        SELECT h.id
+        FROM households h
+        WHERE NOT EXISTS (
+          SELECT 1 FROM categories c
+          WHERE c.household_id = h.id AND c.name = 'Household Help'
+        )
+      );
+
+    INSERT INTO categories (id, household_id, name, emoji, color, sort)
+    SELECT 'household-help-' || h.id, h.id, 'Household Help', '🧹', '#6B7A70', 11
+    FROM households h
+    WHERE NOT EXISTS (
+      SELECT 1 FROM categories c
+      WHERE c.household_id = h.id AND c.name = 'Household Help'
+    );
+  `);
   d.exec(
     "CREATE UNIQUE INDEX IF NOT EXISTS idx_expenses_user_request ON expenses(user_id, request_id)"
   );
