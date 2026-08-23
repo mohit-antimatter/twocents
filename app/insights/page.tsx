@@ -14,18 +14,19 @@ const DAILY_BAR = "#3987e5"; // categorical slot 1 — single-series magnitude
 const DELTA_UP = "#ec835a"; // spending rose — "serious" status
 const DELTA_DOWN = "#0ca30c"; // spending fell — "good" status
 
-export default function InsightsPage({
+export default async function InsightsPage({
   searchParams,
 }: {
-  searchParams: { m?: string };
+  searchParams: Promise<{ m?: string }>;
 }) {
-  const user = getSessionUser();
+  const user = await getSessionUser();
   if (!user) redirect("/login");
   if (!user.householdId) redirect("/onboarding");
 
   const today = localToday();
   const currentMonth = today.slice(0, 7);
-  const month = /^\d{4}-\d{2}$/.test(searchParams.m ?? "") ? searchParams.m! : currentMonth;
+  const query = await searchParams;
+  const month = /^\d{4}-\d{2}$/.test(query.m ?? "") ? query.m! : currentMonth;
 
   const hh = getHousehold(user.householdId);
   const members = getMembers(user.householdId);

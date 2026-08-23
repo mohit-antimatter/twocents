@@ -15,14 +15,15 @@ function statusResponse(result: "ok" | "not_found" | "forbidden") {
   return NextResponse.json({ error: "Not found." }, { status: 404 });
 }
 
-export async function DELETE(_req: Request, { params }: { params: { id: string } }) {
-  const user = getSessionUser();
+export async function DELETE(_req: Request, { params }: { params: Promise<{ id: string }> }) {
+  const user = await getSessionUser();
   if (!user?.householdId) return NextResponse.json({ error: "Not signed in." }, { status: 401 });
-  return statusResponse(deleteExpense(params.id, user.householdId, user.id));
+  const { id } = await params;
+  return statusResponse(deleteExpense(id, user.householdId, user.id));
 }
 
-export async function PATCH(req: Request, { params }: { params: { id: string } }) {
-  const user = getSessionUser();
+export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
+  const user = await getSessionUser();
   if (!user?.householdId) return NextResponse.json({ error: "Not signed in." }, { status: 401 });
 
   const rawBody = (await req.json()) as unknown;
@@ -36,8 +37,9 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     return NextResponse.json({ error: validation.error }, { status: 400 });
   }
 
+  const { id } = await params;
   const result = updateExpense(
-    params.id,
+    id,
     user.householdId,
     user.id,
     validation.value

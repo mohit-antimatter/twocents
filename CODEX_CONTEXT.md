@@ -25,10 +25,13 @@ Capture trust work completed and browser-verified on 2026-08-22: negative and mu
 
 Household/security work completed and browser-verified on 2026-08-23: a user can belong to only one household; households are capped at two people; invite codes rotate automatically after use and owners can replace an unused code; production session cookies are `Secure`; the service worker caches only public static assets and never authenticated pages/RSC responses. Regression suite: `npm test` (16 tests at time of update).
 
+Authentication hardening completed on 2026-08-23: login, signup, invite attempts/rotation, and API-token creation have persistent rate limits with HMACed identifiers; malformed auth bodies and token labels are bounded; unknown-email login performs the same bcrypt work; session rotation removes the previous session, expired sessions are cleaned up, and users can sign out everywhere. Next/React/PostCSS were upgraded to patched production releases and `npm audit --omit=dev` reports zero vulnerabilities. `RATE_LIMIT_SECRET` is required in production.
+
 ## Architecture / file map
 
 - `lib/db.ts` — better-sqlite3 singleton (`global.__twocents_db`), schema (Postgres-compatible: TEXT ids, INTEGER ms), and `migrate()` for additive ALTERs. Web captures store a nullable `request_id` with a per-user unique index for idempotency.
-- `lib/auth.ts` — sessions (cookie `tc_session`, 90d, `HttpOnly` + `SameSite=Lax` + `Secure` in production), bcrypt, bearer-token resolution (SHA-256 hashes in `api_tokens`).
+- `lib/auth.ts` — sessions (cookie `tc_session`, 90d, `HttpOnly` + `SameSite=Lax` + `Secure` in production), session rotation/revocation, bcrypt, bearer-token resolution (SHA-256 hashes in `api_tokens`).
+- `lib/rate-limit.ts` — database-backed fixed-window limits for auth/invite/token abuse; request identifiers are HMACed before storage.
 - `lib/households.ts` — transactional household creation/joining, two-person enforcement, single-use invite rotation, and owner-only manual invite replacement.
 - `lib/parse.ts` — THE parsing brain. Every capture surface funnels here. Currency symbols/words, digit + `k`/`lakh` shorthand, spelled-out word-numbers, date words (yesterday/day before/weekdays), category+merchant from `CATEGORY_KEYWORDS`.
 - `lib/categories.ts` — default category set with chart colors + the keyword dictionary.

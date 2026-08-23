@@ -9,7 +9,7 @@ const PUBLIC_ASSETS = new Set([
   "/manifest.webmanifest",
 ]);
 
-self.addEventListener("install", (event) => {
+self.addEventListener("install", () => {
   self.skipWaiting();
 });
 

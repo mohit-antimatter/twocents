@@ -6,6 +6,11 @@ import {
   rotateHouseholdInvite,
   type HouseholdResult,
 } from "@/lib/households";
+import {
+  RATE_LIMITS,
+  consumeRateLimit,
+  rateLimitHeaders,
+} from "@/lib/rate-limit";
 
 function resultResponse(result: HouseholdResult) {
   if (result.ok) {
@@ -27,7 +32,7 @@ function resultResponse(result: HouseholdResult) {
 }
 
 export async function POST(req: Request) {
-  const user = getSessionUser();
+  const user = await getSessionUser();
   if (!user) return NextResponse.json({ error: "Not signed in." }, { status: 401 });
   const rawBody = (await req.json()) as unknown;
   if (!rawBody || typeof rawBody !== "object" || Array.isArray(rawBody)) {
@@ -42,12 +47,30 @@ export async function POST(req: Request) {
   }
 
   if (body.action === "join") {
+    const limit = consumeRateLimit("household-join-user", user.id, RATE_LIMITS.joinByUser);
+    if (!limit.allowed) {
+      return NextResponse.json(
+        { error: "Too many invite attempts. Try again in a few minutes." },
+        { status: 429, headers: rateLimitHeaders(limit) }
+      );
+    }
     return resultResponse(joinHousehold(user.id, body.code));
   }
 
   if (body.action === "rotate") {
     if (!user.householdId) {
       return NextResponse.json({ error: "Finish household setup first." }, { status: 409 });
+    }
+    const limit = consumeRateLimit(
+      "household-invite-rotation-user",
+      user.id,
+      RATE_LIMITS.inviteRotationByUser
+    );
+    if (!limit.allowed) {
+      return NextResponse.json(
+        { error: "Invite code replaced too often. Try again later." },
+        { status: 429, headers: rateLimitHeaders(limit) }
+      );
     }
     return resultResponse(rotateHouseholdInvite(user.householdId, user.id));
   }

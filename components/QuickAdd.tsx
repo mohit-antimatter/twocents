@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
 
 type Toast =
@@ -8,13 +8,22 @@ type Toast =
   | { kind: "err" | "voice"; msg: string }
   | null;
 
+const subscribeToBrowserCapability = () => () => {};
+
 export default function QuickAdd() {
   const router = useRouter();
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
   const [toast, setToast] = useState<Toast>(null);
   const [listening, setListening] = useState(false);
-  const [speechOK, setSpeechOK] = useState(false);
+  const speechOK = useSyncExternalStore(
+    subscribeToBrowserCapability,
+    () => {
+      const browser = window as unknown as Record<string, unknown>;
+      return Boolean(browser.SpeechRecognition || browser.webkitSpeechRecognition);
+    },
+    () => false
+  );
   const [draftSource, setDraftSource] = useState<"web" | "voice">("web");
   const [undoing, setUndoing] = useState(false);
   const toastTimer = useRef<number | undefined>(undefined);
@@ -22,8 +31,6 @@ export default function QuickAdd() {
   const pendingRequest = useRef<{ text: string; id: string } | null>(null);
 
   useEffect(() => {
-    const w = window as unknown as Record<string, unknown>;
-    if (w.SpeechRecognition || w.webkitSpeechRecognition) setSpeechOK(true);
     return () => window.clearTimeout(toastTimer.current);
   }, []);
 

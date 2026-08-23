@@ -12,8 +12,8 @@ import SignOutButton from "@/components/SignOutButton";
 
 export const dynamic = "force-dynamic";
 
-export default function SettingsPage() {
-  const user = getSessionUser();
+export default async function SettingsPage() {
+  const user = await getSessionUser();
   if (!user) redirect("/login");
   if (!user.householdId) redirect("/onboarding");
 
@@ -134,7 +134,7 @@ export default function SettingsPage() {
           <h2 className="mb-3 text-xs font-medium uppercase tracking-[0.14em] text-mute">
             Account
           </h2>
-          <div className="flex items-center justify-between rounded-2xl border border-hairline bg-surface p-4">
+          <div className="flex flex-col gap-4 rounded-2xl border border-hairline bg-surface p-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <p className="text-ink">{user.name}</p>
               <p className="text-sm text-mute">{user.email}</p>

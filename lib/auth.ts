@@ -31,34 +31,53 @@ export function verifyPassword(pw: string, hash: string): boolean {
   return bcrypt.compareSync(pw, hash);
 }
 
-export function createSession(userId: string): void {
+export async function createSession(userId: string): Promise<void> {
+  const cookieStore = await cookies();
+  const previousSessionId = cookieStore.get(SESSION_COOKIE)?.value;
   const id = crypto.randomBytes(32).toString("hex");
   const expires = Date.now() + SESSION_DAYS * 86400_000;
-  db()
-    .prepare("INSERT INTO sessions (id, user_id, expires_at) VALUES (?, ?, ?)")
-    .run(id, userId, expires);
-  cookies().set(SESSION_COOKIE, id, sessionCookieOptions());
+  const database = db();
+  database.transaction(() => {
+    if (previousSessionId) {
+      database.prepare("DELETE FROM sessions WHERE id = ?").run(previousSessionId);
+    }
+    database
+      .prepare("INSERT INTO sessions (id, user_id, expires_at) VALUES (?, ?, ?)")
+      .run(id, userId, expires);
+  })();
+  cookieStore.set(SESSION_COOKIE, id, sessionCookieOptions());
 }
 
-export function destroySession(): void {
-  const sid = cookies().get(SESSION_COOKIE)?.value;
+export async function destroySession(): Promise<void> {
+  const cookieStore = await cookies();
+  const sid = cookieStore.get(SESSION_COOKIE)?.value;
   if (sid) {
     db().prepare("DELETE FROM sessions WHERE id = ?").run(sid);
-    cookies().delete(SESSION_COOKIE);
   }
+  cookieStore.delete(SESSION_COOKIE);
 }
 
-export function getSessionUser(): SessionUser | null {
-  const sid = cookies().get(SESSION_COOKIE)?.value;
+export async function destroyAllSessions(userId: string): Promise<void> {
+  db().prepare("DELETE FROM sessions WHERE user_id = ?").run(userId);
+  (await cookies()).delete(SESSION_COOKIE);
+}
+
+export async function getSessionUser(): Promise<SessionUser | null> {
+  const cookieStore = await cookies();
+  const sid = cookieStore.get(SESSION_COOKIE)?.value;
   if (!sid) return null;
   const row = db()
     .prepare(
-      `SELECT u.id, u.email, u.name
+      `SELECT u.id, u.email, u.name, s.expires_at
        FROM sessions s JOIN users u ON u.id = s.user_id
-       WHERE s.id = ? AND s.expires_at > ?`
+       WHERE s.id = ?`
     )
-    .get(sid, Date.now()) as { id: string; email: string; name: string } | undefined;
-  if (!row) return null;
+    .get(sid) as { id: string; email: string; name: string; expires_at: number } | undefined;
+  if (!row || row.expires_at <= Date.now()) {
+    db().prepare("DELETE FROM sessions WHERE id = ?").run(sid);
+    cookieStore.delete(SESSION_COOKIE);
+    return null;
+  }
   const hh = db()
     .prepare("SELECT household_id FROM household_members WHERE user_id = ? LIMIT 1")
     .get(row.id) as { household_id: string } | undefined;

@@ -5,7 +5,7 @@ import { listCategories } from "@/lib/categories";
 import { parseExpenseText, parsedExpenseError, localToday } from "@/lib/parse";
 
 export async function POST(req: Request) {
-  const user = getSessionUser();
+  const user = await getSessionUser();
   if (!user?.householdId) return NextResponse.json({ error: "Not signed in." }, { status: 401 });
 
   const { text, source, requestId } = await req.json();

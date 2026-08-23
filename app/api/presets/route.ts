@@ -3,13 +3,13 @@ import { getSessionUser } from "@/lib/auth";
 import { listPresets, createPreset } from "@/lib/expenses";
 
 export async function GET() {
-  const user = getSessionUser();
+  const user = await getSessionUser();
   if (!user?.householdId) return NextResponse.json({ error: "Not signed in." }, { status: 401 });
   return NextResponse.json({ presets: listPresets(user.householdId) });
 }
 
 export async function POST(req: Request) {
-  const user = getSessionUser();
+  const user = await getSessionUser();
   if (!user?.householdId) return NextResponse.json({ error: "Not signed in." }, { status: 401 });
   const body = await req.json();
   const amount = Number(body.amount);

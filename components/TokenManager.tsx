@@ -1,19 +1,21 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState, useSyncExternalStore } from "react";
 import CopyButton from "./CopyButton";
 
 type TokenRow = { id: string; label: string; created_at: number; last_used_at: number | null };
+
+const subscribeToOrigin = () => () => {};
 
 export default function TokenManager({ initialTokens }: { initialTokens: TokenRow[] }) {
   const [tokens, setTokens] = useState(initialTokens);
   const [freshToken, setFreshToken] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const [origin, setOrigin] = useState("https://your-app-url");
-
-  useEffect(() => {
-    setOrigin(window.location.origin);
-  }, []);
+  const origin = useSyncExternalStore(
+    subscribeToOrigin,
+    () => window.location.origin,
+    () => "https://your-app-url"
+  );
 
   async function create() {
     setBusy(true);

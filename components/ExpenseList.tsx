@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { formatMinor, CURRENCIES } from "@/lib/money";
 
@@ -54,15 +54,13 @@ export default function ExpenseList({
   initialEditId?: string;
 }) {
   const router = useRouter();
-  const [editing, setEditing] = useState<ExpenseItem | null>(null);
-
-  useEffect(() => {
-    if (!initialEditId) return;
-    const target = items.find(
-      (item) => item.id === initialEditId && item.user_id === currentUserId
-    );
-    if (target) setEditing(target);
-  }, [currentUserId, initialEditId, items]);
+  const [editing, setEditing] = useState<ExpenseItem | null>(() =>
+    initialEditId
+      ? items.find(
+          (item) => item.id === initialEditId && item.user_id === currentUserId
+        ) ?? null
+      : null
+  );
 
   function closeEditor() {
     setEditing(null);

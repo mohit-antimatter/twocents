@@ -26,9 +26,10 @@ Settings → *Siri & iPhone Shortcuts* → generate a token, then follow the 5-s
 
 ## Architecture
 
-- **Next.js 14 (App Router) + TypeScript + Tailwind** — PWA (manifest + service worker + installable icons)
+- **Next.js 16 (App Router) + React 19 + TypeScript + Tailwind** — PWA (manifest + service worker + installable icons)
 - **SQLite via better-sqlite3** in `data/` — schema kept Postgres-compatible for the launch migration
 - **Cookie sessions + bcrypt**; personal API tokens (SHA-256 hashed) for Shortcuts
+- **Persistent API rate limits** with HMACed identifiers; set `RATE_LIMIT_SECRET` in production
 - **Deterministic local parser** in `lib/parse.ts` — keywords, dates, currencies, word-numbers
 - Chart palette is CVD-validated for the dark surface
 
