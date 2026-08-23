@@ -19,7 +19,7 @@ TwoCents is a **shared household expense ledger for couples** — a product from
 
 ## Current state (all browser-verified)
 
-Working end to end: signup/login (cookie sessions, bcrypt) → household create/join via invite code → NL quick-add (`swiggy 450`, `uber 340 yesterday`, `petrol 2k`, `$40 dinner`, `three hundred on chai`) → voice entry with transcript review before saving (Web Speech API feeding the same parser; needs HTTPS so works on localhost but not LAN-IP) → structured capture confirmation with Undo/Edit → one-tap presets → shared ledger with per-person dots → tap-to-edit sheet (amount, currency, category, merchant, note, date, time; delete inside sheet) → insights (month nav, hero total + delta vs prev month, daily bars, category bars, who-paid split) → settings (invite code, presets CRUD, API tokens, Shortcuts setup guide) → Shortcuts endpoint (bearer auth; returns `{"message": "₹450 · 🍜 Food & Drinks · Swiggy ✓"}` for the notification).
+Working end to end: signup/login (cookie sessions, bcrypt) → household create/join via invite code → NL quick-add (`swiggy 450`, `uber 340 yesterday`, `petrol 2k`, `$40 dinner`, `three hundred on chai`) → voice entry with transcript review before saving (Web Speech API feeding the same parser; needs HTTPS so works on localhost but not LAN-IP) → structured capture confirmation with Undo/Edit → one-tap presets → weekly/monthly recurring schedules → shared ledger with per-person dots → tap-to-edit sheet (amount, currency, category, merchant, note, date, time; delete inside sheet) → insights (month nav, hero total + delta vs prev month, daily bars, category bars, who-paid split) → settings (invite code, presets CRUD, recurring schedules, API tokens, Shortcuts setup guide) → Shortcuts endpoint (bearer auth; returns `{"message": "₹450 · 🍜 Food & Drinks · Swiggy ✓"}` for the notification).
 
 Capture trust work completed and browser-verified on 2026-08-22: negative and multi-number inputs are rejected instead of guessed; malformed dates/times, unsafe amounts, and cross-household category IDs are rejected; web captures use a per-request idempotency key; successful captures expose Undo and Edit; voice no longer auto-saves. Regression suite: `npm test` (12 tests at time of update).
 
@@ -31,24 +31,27 @@ Partner onboarding and the accessibility/UI foundation were completed and browse
 
 Data ownership and spending pace were completed and browser-verified on 2026-08-23. Settings now downloads the full shared ledger as an authenticated, private/no-store UTF-8 CSV with original amounts, snapshotted home-currency values, categories, notes, payer, source, timestamps, and expense IDs; text cells are neutralized against spreadsheet-formula injection and the query is household-scoped. Home shows a neutral pace card only after at least two comparable active months: spend through today is compared with the median of up to three recent months through the same day, with a ±5% “usual variation” band and no red/shame framing. Regression suite: `npm test` (31 tests at time of update); authenticated download headers/body, unauthenticated rejection, responsive UI, console checks, TypeScript, lint, and production build pass.
 
+Recurring expenses were completed and browser-verified on 2026-08-23. Either partner can create a weekly or monthly schedule in Settings; the creator is the payer and is the only person who can pause, resume, or delete it. Due charges are materialized transactionally before the ledger, insights, settings, or CSV export is read, with one charge per due date, catch-up after time away, preserved month anchors (31 Jan → 28 Feb → 31 Mar), snapshotted FX, and no duplicates on reload. Pausing skips dates during the paused period; deleting a schedule keeps its already-logged expenses. Until a deployed background worker exists, a due charge posts when either partner next opens TwoCents rather than at midnight, and the UI says this plainly. Regression suite: `npm test` (36 tests at time of update); existing-database migration, unauthenticated API rejection, create/pause/resume/delete, idempotent reload, responsive UI, console checks, TypeScript, lint, and production build pass.
+
 ## Architecture / file map
 
-- `lib/db.ts` — better-sqlite3 singleton (`global.__twocents_db`), schema (Postgres-compatible: TEXT ids, INTEGER ms), and `migrate()` for additive ALTERs. Web captures store a nullable `request_id` with a per-user unique index for idempotency.
+- `lib/db.ts` — better-sqlite3 singleton (`global.__twocents_db`), schema (Postgres-compatible: TEXT ids, INTEGER ms), and `migrate()` for additive ALTERs. Web captures store a nullable `request_id` with a per-user unique index for idempotency; recurring charges store `recurring_rule_id` with a per-rule/date unique index.
 - `lib/auth.ts` — sessions (cookie `tc_session`, 90d, `HttpOnly` + `SameSite=Lax` + `Secure` in production), session rotation/revocation, bcrypt, bearer-token resolution (SHA-256 hashes in `api_tokens`).
 - `lib/rate-limit.ts` — database-backed fixed-window limits for auth/invite/token abuse; request identifiers are HMACed before storage.
 - `lib/households.ts` — transactional household creation/joining, two-person enforcement, single-use invite rotation, and owner-only manual invite replacement.
 - `lib/parse.ts` — THE parsing brain. Every capture surface funnels here. Currency symbols/words, digit + `k`/`lakh` shorthand, spelled-out word-numbers, date words (yesterday/day before/weekdays), category+merchant from `CATEGORY_KEYWORDS`.
 - `lib/categories.ts` — default category set with chart colors + the keyword dictionary.
 - `lib/expenses.ts` — all expense ops: create-from-parsed (stamps `spent_time` only when spent_on == today), update/delete with creator checks, month summaries, presets.
+- `lib/recurring.ts` — validates and manages weekly/monthly schedules, advances monthly anchor dates, and transactionally materializes due charges without duplicates.
 - `lib/money.ts` — currency table, static per-USD rates, `formatMinor` (en-IN grouping for INR).
-- `app/api/*` — routes: auth (signup/login/logout), household (create/join), capture, expenses/[id] (PATCH/DELETE, creator-only), presets (+ [id]/log), tokens, shortcuts/capture (bearer), and export (authenticated household CSV).
+- `app/api/*` — routes: auth (signup/login/logout), household (create/join), capture, expenses/[id] (PATCH/DELETE, creator-only), presets (+ [id]/log), recurring (+ [id] PATCH/DELETE, creator-only), tokens, shortcuts/capture (bearer), and export (authenticated household CSV).
 - `app/page.tsx` (home), `app/insights/`, `app/settings/`, `app/login|signup|onboarding/` — pages; server components + client islands in `components/`. `components/AppNav.tsx` owns shared logged-in navigation; `components/OnboardingFlow.tsx` owns create/join and the post-create invite handoff.
-- `components/ExpenseList.tsx` — list + EditSheet modal. `components/QuickAdd.tsx` — capture bar + voice. `components/SpendingPace.tsx` renders the home pace card; the calculation/query lives in `lib/expenses.ts`. CSV serialization and filename safety live in `lib/export.ts`.
+- `components/ExpenseList.tsx` — list + EditSheet modal. `components/QuickAdd.tsx` — capture bar + voice. `components/RecurringManager.tsx` owns recurring schedule creation and controls. `components/SpendingPace.tsx` renders the home pace card; the calculation/query lives in `lib/expenses.ts`. CSV serialization and filename safety live in `lib/export.ts`.
 - PWA: `app/manifest.ts`, `public/sw.js` (registers only in production), icons generated by `scripts/gen-icons.mjs`.
 
 ## Data model (SQLite, `data/twocents.db` — gitignored, contains REAL user data; never commit or wipe)
 
-users · sessions · households (home_currency, invite_code) · household_members · categories (per-household, seeded on create) · expenses (amount_minor INT, currency, fx_to_home REAL, category_id, merchant, note, spent_on 'YYYY-MM-DD', spent_time 'HH:MM' nullable, source web|voice|preset|shortcut, raw_input) · presets · api_tokens (hash only).
+users · sessions · households (home_currency, invite_code) · household_members · categories (per-household, seeded on create) · recurring_expenses (payer, label, amount/currency/category, weekly|monthly, anchor_day, next_due_on, active) · expenses (amount_minor INT, currency, fx_to_home REAL, category_id, merchant, note, spent_on 'YYYY-MM-DD', spent_time 'HH:MM' nullable, source web|voice|preset|shortcut|recurring, raw_input, recurring_rule_id nullable) · presets · api_tokens (hash only).
 
 Money rule: integers in minor units; `home_minor = round(amount_minor * fx_to_home)`.
 
@@ -64,13 +67,12 @@ Money rule: integers in minor units; `home_minor = round(amount_minor * fx_to_ho
 
 ## Roadmap (research-ranked; see docs/market-research.md)
 
-Completed: CSV export; glanceable spend-so-far vs typical-by-this-date pace.
+Completed: CSV export; glanceable spend-so-far vs typical-by-this-date pace; recurring expenses.
 
-1. Recurring expenses (auto-log rent/Netflix on schedule; extends presets)
-2. Gentle per-category budgets (pace framing)
-3. Private-expense flag (mixed-finances couples: counted, but details hidden from partner)
-4. Insights drill-down within a category grouped by title (proposed to owner as the no-friction alternative to formal subcategories — owner has NOT yet approved; formal subcategories, if ever, must be optional + keyword-auto-assigned)
-5. Deployment: GitHub done; next is Vercel + Postgres swap (schema is ready) — owner is deployment-beginner, explain steps plainly.
+1. Gentle per-category budgets (pace framing)
+2. Private-expense flag (mixed-finances couples: counted, but details hidden from partner)
+3. Insights drill-down within a category grouped by title (proposed to owner as the no-friction alternative to formal subcategories — owner has NOT yet approved; formal subcategories, if ever, must be optional + keyword-auto-assigned)
+4. Deployment: GitHub done; next is Vercel + Postgres swap (schema is ready) — owner is deployment-beginner, explain steps plainly.
 
 Known parser gap the owner flagged: household-help words (`cook`, `nanny`, `driver`…) aren't in `CATEGORY_KEYWORDS` → land in Other ("maid" is mapped). Fix pending as part of the owner's next feedback batch — consider a dedicated Household Help category.
 

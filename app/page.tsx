@@ -12,6 +12,7 @@ import {
 import { formatMinor } from "@/lib/money";
 import { personColorMap } from "@/lib/colors";
 import { localToday } from "@/lib/parse";
+import { materializeDueRecurring } from "@/lib/recurring";
 import { listCategories } from "@/lib/categories";
 import QuickAdd from "@/components/QuickAdd";
 import PresetChips from "@/components/PresetChips";
@@ -36,6 +37,7 @@ export default async function Home({
   const members = getMembers(user.householdId);
   const personColors = personColorMap(members);
   const today = localToday();
+  materializeDueRecurring(user.householdId, today);
   const month = today.slice(0, 7);
   const summary = getMonthSummary(user.householdId, month);
   const pace = getSpendingPace(user.householdId, today);

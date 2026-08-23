@@ -45,6 +45,22 @@ CREATE TABLE IF NOT EXISTS categories (
   sort INTEGER NOT NULL DEFAULT 0
 );
 
+CREATE TABLE IF NOT EXISTS recurring_expenses (
+  id TEXT PRIMARY KEY,
+  household_id TEXT NOT NULL REFERENCES households(id),
+  user_id TEXT NOT NULL REFERENCES users(id),
+  label TEXT NOT NULL,
+  amount_minor INTEGER NOT NULL,
+  currency TEXT NOT NULL,
+  category_id TEXT REFERENCES categories(id),
+  frequency TEXT NOT NULL,
+  anchor_day INTEGER NOT NULL,
+  next_due_on TEXT NOT NULL,
+  active INTEGER NOT NULL DEFAULT 1,
+  created_at INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_recurring_hh_due ON recurring_expenses(household_id, active, next_due_on);
+
 CREATE TABLE IF NOT EXISTS expenses (
   id TEXT PRIMARY KEY,
   household_id TEXT NOT NULL REFERENCES households(id),
@@ -60,6 +76,7 @@ CREATE TABLE IF NOT EXISTS expenses (
   source TEXT NOT NULL DEFAULT 'web',
   raw_input TEXT,
   request_id TEXT,
+  recurring_rule_id TEXT,
   created_at INTEGER NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_expenses_hh_date ON expenses(household_id, spent_on);
@@ -110,7 +127,7 @@ export function db(): Database.Database {
 }
 
 // Additive migrations for databases created before a column existed.
-function migrate(d: Database.Database) {
+export function migrate(d: Database.Database) {
   const cols = d.prepare("PRAGMA table_info(expenses)").all() as { name: string }[];
   if (!cols.some((c) => c.name === "spent_time")) {
     d.exec("ALTER TABLE expenses ADD COLUMN spent_time TEXT");
@@ -118,11 +135,17 @@ function migrate(d: Database.Database) {
   if (!cols.some((c) => c.name === "request_id")) {
     d.exec("ALTER TABLE expenses ADD COLUMN request_id TEXT");
   }
+  if (!cols.some((c) => c.name === "recurring_rule_id")) {
+    d.exec("ALTER TABLE expenses ADD COLUMN recurring_rule_id TEXT");
+  }
   d.exec(
     "CREATE UNIQUE INDEX IF NOT EXISTS idx_expenses_user_request ON expenses(user_id, request_id)"
   );
   d.exec(
     "CREATE UNIQUE INDEX IF NOT EXISTS idx_household_members_user ON household_members(user_id)"
+  );
+  d.exec(
+    "CREATE UNIQUE INDEX IF NOT EXISTS idx_expenses_recurring_due ON expenses(recurring_rule_id, spent_on)"
   );
 }
 

@@ -2,6 +2,7 @@ import { getSessionUser } from "@/lib/auth";
 import { expensesToCsv, exportFilename } from "@/lib/export";
 import { getHousehold, listExpensesForExport } from "@/lib/expenses";
 import { localToday } from "@/lib/parse";
+import { materializeDueRecurring } from "@/lib/recurring";
 
 export const dynamic = "force-dynamic";
 
@@ -20,12 +21,14 @@ export async function GET() {
     );
   }
 
+  const today = localToday();
+  materializeDueRecurring(user.householdId, today);
   const household = getHousehold(user.householdId);
   const csv = expensesToCsv(
     listExpensesForExport(user.householdId),
     household.home_currency
   );
-  const filename = exportFilename(household.name, localToday());
+  const filename = exportFilename(household.name, today);
 
   return new Response(csv, {
     headers: {

@@ -5,8 +5,11 @@ import { getSessionUser } from "@/lib/auth";
 import { getHousehold, getMembers, listPresets } from "@/lib/expenses";
 import { listCategories } from "@/lib/categories";
 import { personColorMap } from "@/lib/colors";
+import { localToday } from "@/lib/parse";
+import { listRecurringRules, materializeDueRecurring } from "@/lib/recurring";
 import InviteManager from "@/components/InviteManager";
 import PresetManager from "@/components/PresetManager";
+import RecurringManager from "@/components/RecurringManager";
 import TokenManager from "@/components/TokenManager";
 import SignOutButton from "@/components/SignOutButton";
 import AppNav from "@/components/AppNav";
@@ -20,10 +23,13 @@ export default async function SettingsPage() {
   if (!user.householdId) redirect("/onboarding");
 
   const hh = getHousehold(user.householdId);
+  const today = localToday();
+  materializeDueRecurring(user.householdId, today);
   const members = getMembers(user.householdId);
   const personColors = personColorMap(members);
   const presets = listPresets(user.householdId);
   const categories = listCategories(user.householdId);
+  const recurring = listRecurringRules(user.householdId);
   const membership = db()
     .prepare("SELECT role FROM household_members WHERE household_id = ? AND user_id = ?")
     .get(user.householdId, user.id) as { role: string } | undefined;
@@ -92,6 +98,27 @@ export default async function SettingsPage() {
             presets={presets}
             categories={categories.map((c) => ({ id: c.id, name: c.name, emoji: c.emoji }))}
             homeCurrency={hh.home_currency}
+          />
+        </section>
+
+        {/* Recurring expenses */}
+        <section id="recurring">
+          <h2 className="mb-1 text-xs font-medium uppercase tracking-[0.14em] text-mute">
+            Recurring expenses
+          </h2>
+          <p className="mb-3 text-sm text-mute">
+            Rent, subscriptions, and other fixed costs logged on schedule.
+          </p>
+          <RecurringManager
+            rules={recurring}
+            categories={categories.map((category) => ({
+              id: category.id,
+              name: category.name,
+              emoji: category.emoji,
+            }))}
+            homeCurrency={hh.home_currency}
+            today={today}
+            currentUserId={user.id}
           />
         </section>
 

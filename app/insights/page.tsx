@@ -6,6 +6,7 @@ import { getHousehold, getMembers, getMonthSummary, prevMonth, nextMonth } from 
 import { formatMinor } from "@/lib/money";
 import { personColorMap } from "@/lib/colors";
 import { localToday } from "@/lib/parse";
+import { materializeDueRecurring } from "@/lib/recurring";
 import AppNav from "@/components/AppNav";
 
 export const dynamic = "force-dynamic";
@@ -27,6 +28,7 @@ export default async function InsightsPage({
   if (!user.householdId) redirect("/onboarding");
 
   const today = localToday();
+  materializeDueRecurring(user.householdId, today);
   const currentMonth = today.slice(0, 7);
   const query = await searchParams;
   const month = /^\d{4}-\d{2}$/.test(query.m ?? "") ? query.m! : currentMonth;
