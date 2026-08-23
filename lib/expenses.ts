@@ -179,6 +179,37 @@ export function listRecentExpenses(householdId: string, limit = 30): ExpenseRow[
     .all(householdId, limit) as ExpenseRow[];
 }
 
+export type ExpenseExportRow = Pick<
+  ExpenseRow,
+  | "id"
+  | "amount_minor"
+  | "currency"
+  | "fx_to_home"
+  | "merchant"
+  | "note"
+  | "spent_on"
+  | "spent_time"
+  | "source"
+  | "created_at"
+  | "user_name"
+  | "category_name"
+>;
+
+export function listExpensesForExport(householdId: string): ExpenseExportRow[] {
+  return db()
+    .prepare(
+      `SELECT e.id, e.amount_minor, e.currency, e.fx_to_home, e.merchant, e.note,
+              e.spent_on, e.spent_time, e.source, e.created_at,
+              u.name AS user_name, c.name AS category_name
+       FROM expenses e
+       JOIN users u ON u.id = e.user_id
+       LEFT JOIN categories c ON c.id = e.category_id
+       WHERE e.household_id = ?
+       ORDER BY e.spent_on, COALESCE(e.spent_time, ''), e.created_at, e.id`
+    )
+    .all(householdId) as ExpenseExportRow[];
+}
+
 // Only the person who logged an expense may delete or edit it.
 export function deleteExpense(
   id: string,
@@ -331,6 +362,104 @@ export function getMonthSummary(householdId: string, month: string): MonthSummar
       .sort((a, b) => a.day.localeCompare(b.day)),
     count: rows.length,
   };
+}
+
+export type SpendingPace = {
+  asOfDay: number;
+  currentMinor: number;
+  typicalMinor: number;
+  differenceMinor: number;
+  differencePct: number;
+  direction: "above" | "below" | "near";
+  comparisonMonths: string[];
+};
+
+export function calculateSpendingPace(
+  asOfDay: number,
+  currentMinor: number,
+  comparableMonths: { month: string; totalMinor: number }[]
+): SpendingPace | null {
+  if (comparableMonths.length < 2) return null;
+
+  const totals = comparableMonths
+    .map((item) => item.totalMinor)
+    .sort((a, b) => a - b);
+  const middle = Math.floor(totals.length / 2);
+  const typicalMinor =
+    totals.length % 2 === 0
+      ? Math.round((totals[middle - 1] + totals[middle]) / 2)
+      : totals[middle];
+  if (typicalMinor <= 0) return null;
+
+  const differenceMinor = currentMinor - typicalMinor;
+  const differencePct = Math.round((differenceMinor / typicalMinor) * 100);
+  const direction =
+    Math.abs(differencePct) <= 5 ? "near" : differenceMinor > 0 ? "above" : "below";
+
+  return {
+    asOfDay,
+    currentMinor,
+    typicalMinor,
+    differenceMinor,
+    differencePct,
+    direction,
+    comparisonMonths: comparableMonths.map((item) => item.month),
+  };
+}
+
+export function getSpendingPace(
+  householdId: string,
+  asOfDate: string
+): SpendingPace | null {
+  const currentMonth = asOfDate.slice(0, 7);
+  const asOfDay = Number(asOfDate.slice(8, 10));
+  const comparisonMonths = [
+    prevMonth(prevMonth(prevMonth(currentMonth))),
+    prevMonth(prevMonth(currentMonth)),
+    prevMonth(currentMonth),
+  ];
+  const earliestDate = comparisonMonths[0] + "-01";
+  const nextMonthDate = nextMonth(currentMonth) + "-01";
+  const rows = db()
+    .prepare(
+      `SELECT amount_minor, fx_to_home, spent_on
+       FROM expenses
+       WHERE household_id = ? AND spent_on >= ? AND spent_on < ?`
+    )
+    .all(householdId, earliestDate, nextMonthDate) as {
+    amount_minor: number;
+    fx_to_home: number;
+    spent_on: string;
+  }[];
+
+  let currentMinor = 0;
+  const historical = new Map<string, { totalMinor: number; count: number }>(
+    comparisonMonths.map((month) => [month, { totalMinor: 0, count: 0 }])
+  );
+
+  for (const row of rows) {
+    const month = row.spent_on.slice(0, 7);
+    const day = Number(row.spent_on.slice(8, 10));
+    const homeMinor = toHomeMinor(row.amount_minor, row.fx_to_home);
+    if (month === currentMonth) {
+      if (row.spent_on <= asOfDate) currentMinor += homeMinor;
+      continue;
+    }
+    const bucket = historical.get(month);
+    if (bucket && day <= asOfDay) {
+      bucket.totalMinor += homeMinor;
+      bucket.count += 1;
+    }
+  }
+
+  return calculateSpendingPace(
+    asOfDay,
+    currentMinor,
+    comparisonMonths
+      .map((month) => ({ month, ...historical.get(month)! }))
+      .filter((item) => item.count > 0)
+      .map(({ month, totalMinor }) => ({ month, totalMinor }))
+  );
 }
 
 // ---------------------------------------------------------------------------

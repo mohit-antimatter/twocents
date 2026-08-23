@@ -25,13 +25,13 @@ export default function SignOutButton() {
   }
 
   return (
-    <div className="flex flex-col items-end gap-2">
-      <div className="flex flex-wrap justify-end gap-2">
+    <div className="flex w-full flex-col items-start gap-2">
+      <div className="grid w-full grid-cols-2 gap-2">
         <button
           type="button"
           disabled={busy !== null}
           onClick={() => signOut(false)}
-          className="min-h-11 rounded-xl border border-hairline px-4 text-sm text-dim transition-colors hover:border-danger/40 hover:text-danger disabled:opacity-50"
+          className="min-h-11 rounded-xl border border-hairline px-3 text-sm text-dim transition-colors hover:border-danger/40 hover:text-danger disabled:opacity-50"
         >
           {busy === "current" ? "Signing out…" : "Sign out"}
         </button>
@@ -39,7 +39,7 @@ export default function SignOutButton() {
           type="button"
           disabled={busy !== null}
           onClick={() => signOut(true)}
-          className="min-h-11 rounded-xl border border-hairline px-4 text-sm text-dim transition-colors hover:border-danger/40 hover:text-danger disabled:opacity-50"
+          className="min-h-11 rounded-xl border border-hairline px-3 text-sm text-dim transition-colors hover:border-danger/40 hover:text-danger disabled:opacity-50"
         >
           {busy === "all" ? "Signing out…" : "Sign out everywhere"}
         </button>

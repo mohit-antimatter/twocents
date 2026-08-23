@@ -123,12 +123,41 @@ export default async function SettingsPage() {
           </div>
         </section>
 
+        {/* Data export */}
+        <section>
+          <h2 className="mb-1 text-xs font-medium uppercase tracking-[0.14em] text-mute">
+            Your data
+          </h2>
+          <p className="mb-3 text-sm text-mute">
+            Take the complete household ledger with you at any time.
+          </p>
+          <div className="rounded-2xl border border-hairline bg-surface p-4">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="text-sm font-medium text-ink">All expenses · CSV</p>
+                <p className="mt-1 text-xs leading-relaxed text-mute">
+                  Includes original amounts, home-currency values, categories, notes, and who paid.
+                </p>
+              </div>
+              <a
+                href="/api/export"
+                className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-xl border border-mint/30 px-4 text-sm font-medium text-mint transition-colors hover:bg-mint/10"
+              >
+                <svg aria-hidden="true" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M12 3v12m0 0 4-4m-4 4-4-4M5 21h14" />
+                </svg>
+                Download CSV
+              </a>
+            </div>
+          </div>
+        </section>
+
         {/* Account */}
         <section>
           <h2 className="mb-3 text-xs font-medium uppercase tracking-[0.14em] text-mute">
             Account
           </h2>
-          <div className="flex flex-col gap-4 rounded-2xl border border-hairline bg-surface p-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-col gap-4 rounded-2xl border border-hairline bg-surface p-4">
             <div>
               <p className="text-ink">{user.name}</p>
               <p className="text-sm text-mute">{user.email}</p>

@@ -5,6 +5,7 @@ import {
   getHousehold,
   getMembers,
   getMonthSummary,
+  getSpendingPace,
   listPresets,
   listRecentExpenses,
 } from "@/lib/expenses";
@@ -17,6 +18,7 @@ import PresetChips from "@/components/PresetChips";
 import ExpenseList from "@/components/ExpenseList";
 import AppNav from "@/components/AppNav";
 import InviteManager from "@/components/InviteManager";
+import SpendingPace from "@/components/SpendingPace";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Ledger | TwoCents" };
@@ -36,6 +38,7 @@ export default async function Home({
   const today = localToday();
   const month = today.slice(0, 7);
   const summary = getMonthSummary(user.householdId, month);
+  const pace = getSpendingPace(user.householdId, today);
   const presets = listPresets(user.householdId);
   const recent = listRecentExpenses(user.householdId, 40);
   const categories = listCategories(user.householdId).map((c) => ({
@@ -68,6 +71,8 @@ export default async function Home({
           {members.length > 1 && " · both of you"}
         </p>
       </section>
+
+      {pace && <SpendingPace pace={pace} currency={hh.home_currency} />}
 
       {members.length === 1 && recent.length === 0 && (
         <section className="mb-6" aria-label="Partner invitation">
