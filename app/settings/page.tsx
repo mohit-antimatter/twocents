@@ -5,7 +5,7 @@ import { getSessionUser } from "@/lib/auth";
 import { getHousehold, getMembers, listPresets } from "@/lib/expenses";
 import { listCategories } from "@/lib/categories";
 import { personColorMap } from "@/lib/colors";
-import CopyButton from "@/components/CopyButton";
+import InviteManager from "@/components/InviteManager";
 import PresetManager from "@/components/PresetManager";
 import TokenManager from "@/components/TokenManager";
 import SignOutButton from "@/components/SignOutButton";
@@ -22,6 +22,9 @@ export default function SettingsPage() {
   const personColors = personColorMap(members);
   const presets = listPresets(user.householdId);
   const categories = listCategories(user.householdId);
+  const membership = db()
+    .prepare("SELECT role FROM household_members WHERE household_id = ? AND user_id = ?")
+    .get(user.householdId, user.id) as { role: string } | undefined;
   const tokens = db()
     .prepare(
       "SELECT id, label, created_at, last_used_at FROM api_tokens WHERE user_id = ? ORDER BY created_at DESC"
@@ -75,18 +78,10 @@ export default function SettingsPage() {
               </ul>
             </div>
             {members.length < 2 && (
-              <div className="rounded-xl border border-amber/30 bg-surface2 p-3">
-                <p className="text-sm text-ink">Invite your partner</p>
-                <p className="mt-0.5 text-xs text-mute">
-                  They sign up, choose “Join with a code”, and enter:
-                </p>
-                <div className="mt-2 flex items-center gap-2">
-                  <code className="rounded-lg bg-bg px-3 py-1.5 font-money text-sm tracking-[0.2em] text-amber">
-                    {hh.invite_code}
-                  </code>
-                  <CopyButton value={hh.invite_code} />
-                </div>
-              </div>
+              <InviteManager
+                initialCode={hh.invite_code}
+                canRotate={membership?.role === "owner"}
+              />
             )}
           </div>
         </section>

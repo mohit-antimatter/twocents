@@ -115,6 +115,9 @@ function migrate(d: Database.Database) {
   d.exec(
     "CREATE UNIQUE INDEX IF NOT EXISTS idx_expenses_user_request ON expenses(user_id, request_id)"
   );
+  d.exec(
+    "CREATE UNIQUE INDEX IF NOT EXISTS idx_household_members_user ON household_members(user_id)"
+  );
 }
 
 export function uid(): string {

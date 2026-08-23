@@ -6,6 +6,16 @@ import { db, uid } from "./db";
 const SESSION_COOKIE = "tc_session";
 const SESSION_DAYS = 90;
 
+export function sessionCookieOptions(isProduction = process.env.NODE_ENV === "production") {
+  return {
+    httpOnly: true,
+    sameSite: "lax" as const,
+    secure: isProduction,
+    path: "/",
+    maxAge: SESSION_DAYS * 86400,
+  };
+}
+
 export type SessionUser = {
   id: string;
   email: string;
@@ -27,12 +37,7 @@ export function createSession(userId: string): void {
   db()
     .prepare("INSERT INTO sessions (id, user_id, expires_at) VALUES (?, ?, ?)")
     .run(id, userId, expires);
-  cookies().set(SESSION_COOKIE, id, {
-    httpOnly: true,
-    sameSite: "lax",
-    path: "/",
-    maxAge: SESSION_DAYS * 86400,
-  });
+  cookies().set(SESSION_COOKIE, id, sessionCookieOptions());
 }
 
 export function destroySession(): void {

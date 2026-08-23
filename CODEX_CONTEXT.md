@@ -23,10 +23,13 @@ Working end to end: signup/login (cookie sessions, bcrypt) → household create/
 
 Capture trust work completed and browser-verified on 2026-08-22: negative and multi-number inputs are rejected instead of guessed; malformed dates/times, unsafe amounts, and cross-household category IDs are rejected; web captures use a per-request idempotency key; successful captures expose Undo and Edit; voice no longer auto-saves. Regression suite: `npm test` (12 tests at time of update).
 
+Household/security work completed and browser-verified on 2026-08-23: a user can belong to only one household; households are capped at two people; invite codes rotate automatically after use and owners can replace an unused code; production session cookies are `Secure`; the service worker caches only public static assets and never authenticated pages/RSC responses. Regression suite: `npm test` (16 tests at time of update).
+
 ## Architecture / file map
 
 - `lib/db.ts` — better-sqlite3 singleton (`global.__twocents_db`), schema (Postgres-compatible: TEXT ids, INTEGER ms), and `migrate()` for additive ALTERs. Web captures store a nullable `request_id` with a per-user unique index for idempotency.
-- `lib/auth.ts` — sessions (cookie `tc_session`, 90d), bcrypt, bearer-token resolution (SHA-256 hashes in `api_tokens`).
+- `lib/auth.ts` — sessions (cookie `tc_session`, 90d, `HttpOnly` + `SameSite=Lax` + `Secure` in production), bcrypt, bearer-token resolution (SHA-256 hashes in `api_tokens`).
+- `lib/households.ts` — transactional household creation/joining, two-person enforcement, single-use invite rotation, and owner-only manual invite replacement.
 - `lib/parse.ts` — THE parsing brain. Every capture surface funnels here. Currency symbols/words, digit + `k`/`lakh` shorthand, spelled-out word-numbers, date words (yesterday/day before/weekdays), category+merchant from `CATEGORY_KEYWORDS`.
 - `lib/categories.ts` — default category set with chart colors + the keyword dictionary.
 - `lib/expenses.ts` — all expense ops: create-from-parsed (stamps `spent_time` only when spent_on == today), update/delete with creator checks, month summaries, presets.

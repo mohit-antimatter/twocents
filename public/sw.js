@@ -1,7 +1,13 @@
-// TwoCents service worker — network-first for everything, with a small
-// cache so the app shell survives flaky connections. API calls are never
-// served stale.
-const CACHE = "twocents-v1";
+// Cache public, immutable assets only. Authenticated pages and RSC responses
+// contain household data and must never be persisted in Cache Storage.
+const CACHE = "twocents-static-v2";
+const PUBLIC_ASSETS = new Set([
+  "/apple-touch-icon.png",
+  "/icon-192.png",
+  "/icon-512.png",
+  "/icon-maskable-512.png",
+  "/manifest.webmanifest",
+]);
 
 self.addEventListener("install", (event) => {
   self.skipWaiting();
@@ -20,15 +26,21 @@ self.addEventListener("fetch", (event) => {
   const { request } = event;
   if (request.method !== "GET") return;
   const url = new URL(request.url);
-  if (url.pathname.startsWith("/api/")) return;
+  if (url.origin !== self.location.origin) return;
+
+  const isStaticAsset =
+    url.pathname.startsWith("/_next/static/") || PUBLIC_ASSETS.has(url.pathname);
+  if (!isStaticAsset) return;
 
   event.respondWith(
-    fetch(request)
-      .then((response) => {
+    caches.match(request).then((cached) => {
+      if (cached) return cached;
+      return fetch(request).then((response) => {
+        if (!response.ok) return response;
         const copy = response.clone();
-        caches.open(CACHE).then((cache) => cache.put(request, copy)).catch(() => {});
+        event.waitUntil(caches.open(CACHE).then((cache) => cache.put(request, copy)));
         return response;
-      })
-      .catch(() => caches.match(request).then((hit) => hit || Response.error()))
+      });
+    })
   );
 });
