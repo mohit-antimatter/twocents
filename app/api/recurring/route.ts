@@ -21,7 +21,7 @@ export async function POST(req: Request) {
   }
 
   const today = localToday();
-  const result = createRecurringRule(
+  const result = await createRecurringRule(
     user.householdId,
     user.id,
     rawBody as Record<string, unknown>,
@@ -30,6 +30,6 @@ export async function POST(req: Request) {
   if (!result.ok) {
     return NextResponse.json({ error: result.error }, { status: 400 });
   }
-  const logged = materializeDueRecurring(user.householdId, today);
+  const logged = await materializeDueRecurring(user.householdId, today);
   return NextResponse.json({ ok: true, id: result.id, logged });
 }

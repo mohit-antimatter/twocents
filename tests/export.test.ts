@@ -1,12 +1,10 @@
 import assert from "node:assert/strict";
-import { mkdtempSync } from "node:fs";
-import os from "node:os";
-import path from "node:path";
 import test from "node:test";
 
-import { db } from "../lib/db";
+import { closeDatabase, db } from "../lib/db";
 import { expensesToCsv, exportFilename } from "../lib/export";
 import { listExpensesForExport, type ExpenseExportRow } from "../lib/expenses";
+import { installTestDatabase } from "./db-helpers";
 
 const row: ExpenseExportRow = {
   id: "expense-1",
@@ -55,33 +53,39 @@ test("builds a bounded portable filename", () => {
   assert.equal(exportFilename("✨", "2026-08-23"), "twocents-household-2026-08-23.csv");
 });
 
-test("export queries never cross the household boundary", () => {
-  const originalCwd = process.cwd();
-  process.chdir(mkdtempSync(path.join(os.tmpdir(), "twocents-export-")));
-
+test("export queries never cross the household boundary", async () => {
+  await installTestDatabase();
   try {
     const database = db();
-    database
-      .prepare("INSERT INTO users (id, email, name, password_hash, created_at) VALUES ('user-1', 'export@example.com', 'Export', 'unused', ?)")
-      .run(Date.now());
-    database
-      .prepare("INSERT INTO households (id, name, home_currency, invite_code, created_at) VALUES (?, ?, 'INR', ?, ?)")
-      .run("household-1", "Us", "EXPORT01", Date.now());
-    database
-      .prepare("INSERT INTO households (id, name, home_currency, invite_code, created_at) VALUES (?, ?, 'INR', ?, ?)")
-      .run("household-2", "Other", "EXPORT02", Date.now());
-    const insert = database.prepare(
-      `INSERT INTO expenses
-       (id, household_id, user_id, amount_minor, currency, fx_to_home, spent_on, source, created_at)
-       VALUES (?, ?, 'user-1', 10000, 'INR', 1, '2026-08-23', 'web', ?)`
+    await database.query(
+      `INSERT INTO users (id, email, name, password_hash, created_at)
+       VALUES ('user-1', 'export@example.com', 'Export', 'unused', $1)`,
+      [Date.now()]
     );
-    insert.run("ours", "household-1", Date.now());
-    insert.run("theirs", "household-2", Date.now());
+    for (const [id, name, code] of [
+      ["household-1", "Us", "EXPORT01"],
+      ["household-2", "Other", "EXPORT02"],
+    ]) {
+      await database.query(
+        `INSERT INTO households (id, name, home_currency, invite_code, created_at)
+         VALUES ($1, $2, 'INR', $3, $4)`,
+        [id, name, code, Date.now()]
+      );
+    }
+    for (const [id, householdId] of [["ours", "household-1"], ["theirs", "household-2"]]) {
+      await database.query(
+        `INSERT INTO expenses
+         (id, household_id, user_id, amount_minor, currency, fx_to_home, spent_on, source, created_at)
+         VALUES ($1, $2, 'user-1', 10000, 'INR', 1, '2026-08-23', 'web', $3)`,
+        [id, householdId, Date.now()]
+      );
+    }
 
-    assert.deepEqual(listExpensesForExport("household-1").map((item) => item.id), ["ours"]);
+    assert.deepEqual(
+      (await listExpensesForExport("household-1")).map((item) => item.id),
+      ["ours"]
+    );
   } finally {
-    global.__twocents_db?.close();
-    global.__twocents_db = undefined;
-    process.chdir(originalCwd);
+    await closeDatabase();
   }
 });

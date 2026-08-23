@@ -22,10 +22,13 @@ export async function GET() {
   }
 
   const today = localToday();
-  materializeDueRecurring(user.householdId, today);
-  const household = getHousehold(user.householdId);
-  const csv = expensesToCsv(
+  await materializeDueRecurring(user.householdId, today);
+  const [household, rows] = await Promise.all([
+    getHousehold(user.householdId),
     listExpensesForExport(user.householdId),
+  ]);
+  const csv = expensesToCsv(
+    rows,
     household.home_currency
   );
   const filename = exportFilename(household.name, today);

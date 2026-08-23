@@ -15,10 +15,21 @@ Expense trackers die from entry friction. TwoCents attacks that directly:
 
 ```bash
 npm install
+cp .env.example .env.local
 npm run dev
 ```
 
-Open http://localhost:3000, create an account, create a household, and share the invite code (Settings) with your partner.
+Add your PostgreSQL connection strings and a random `RATE_LIMIT_SECRET` to `.env.local` before starting. Use a pooled connection for `DATABASE_URL`; if your provider gives you a direct connection too, put it in `DIRECT_DATABASE_URL` for one-off imports. Then open http://localhost:3000, create an account, create a household, and share the invite code (Settings) with your partner.
+
+### Moving the existing SQLite ledger
+
+The importer reads the old database without changing it and refuses to run if PostgreSQL already contains application data:
+
+```bash
+npm run db:import-sqlite -- data/twocents.db
+```
+
+Keep `data/twocents.db` as a backup until the deployed app has been checked. Never commit `.env.local` or anything in `data/`.
 
 ### iPhone Shortcuts / Siri
 
@@ -27,7 +38,7 @@ Settings → *Siri & iPhone Shortcuts* → generate a token, then follow the 5-s
 ## Architecture
 
 - **Next.js 16 (App Router) + React 19 + TypeScript + Tailwind** — PWA (manifest + service worker + installable icons)
-- **SQLite via better-sqlite3** in `data/` — schema kept Postgres-compatible for the launch migration
+- **PostgreSQL via node-postgres** — pooled connections, real concurrent transactions, and `BIGINT` millisecond timestamps
 - **Cookie sessions + bcrypt**; personal API tokens (SHA-256 hashed) for Shortcuts
 - **Persistent API rate limits** with HMACed identifiers; set `RATE_LIMIT_SECRET` in production
 - **Deterministic local parser** in `lib/parse.ts` — keywords, dates, currencies, word-numbers
@@ -38,4 +49,4 @@ Settings → *Siri & iPhone Shortcuts* → generate a token, then follow the 5-s
 - Native iOS app with App Intents (deepest Siri/widget integration) on the same API
 - Budgets per category with alerts
 - Live FX rates
-- Postgres + hosted deploy for real users
+- Hosted deployment for real users

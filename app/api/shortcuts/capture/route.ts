@@ -10,7 +10,7 @@ import { parseExpenseText, parsedExpenseError, localToday } from "@/lib/parse";
 // shortcut's confirmation notification.
 
 export async function POST(req: Request) {
-  const user = getUserFromToken(req.headers.get("authorization"));
+  const user = await getUserFromToken(req.headers.get("authorization"));
   if (!user) {
     return NextResponse.json({ message: "Invalid token — regenerate it in Settings." }, { status: 401 });
   }
@@ -18,8 +18,11 @@ export async function POST(req: Request) {
     return NextResponse.json({ message: "Finish household setup in the app first." }, { status: 409 });
   }
 
-  const hh = getHousehold(user.householdId);
-  const categories = listCategories(user.householdId).map((c) => c.name);
+  const [hh, categoryRows] = await Promise.all([
+    getHousehold(user.householdId),
+    listCategories(user.householdId),
+  ]);
+  const categories = categoryRows.map((c) => c.name);
   const ctx = { categories, homeCurrency: hh.home_currency, today: localToday() };
 
   try {
@@ -30,7 +33,7 @@ export async function POST(req: Request) {
     const parsed = parseExpenseText(text.trim(), ctx);
     const parseError = parsedExpenseError(parsed);
     if (parseError) return NextResponse.json({ message: parseError }, { status: 422 });
-    const { summary } = createExpenseFromParsed({
+    const { summary } = await createExpenseFromParsed({
       householdId: user.householdId,
       userId: user.id,
       parsed,

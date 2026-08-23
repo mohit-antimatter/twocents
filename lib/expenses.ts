@@ -1,4 +1,4 @@
-import { db, uid } from "./db";
+import { db, isUniqueViolation, uid } from "./db";
 import { fxRate, toHomeMinor, formatMinor } from "./money";
 import { listCategories } from "./categories";
 import type { ParsedExpense } from "./parse";
@@ -42,42 +42,52 @@ export type Household = {
   invite_code: string;
 };
 
-export function getHousehold(householdId: string): Household {
-  return db()
-    .prepare("SELECT id, name, home_currency, invite_code FROM households WHERE id = ?")
-    .get(householdId) as Household;
-}
-
-export function getMembers(householdId: string): { id: string; name: string }[] {
-  return db()
-    .prepare(
-      `SELECT u.id, u.name FROM household_members m JOIN users u ON u.id = m.user_id
-       WHERE m.household_id = ? ORDER BY m.joined_at`
+export async function getHousehold(householdId: string): Promise<Household> {
+  const household = (
+    await db().query<Household>(
+      "SELECT id, name, home_currency, invite_code FROM households WHERE id = $1",
+      [householdId]
     )
-    .all(householdId) as { id: string; name: string }[];
+  ).rows[0];
+  if (!household) throw new Error("Household not found.");
+  return household;
 }
 
-export function createExpenseFromParsed(opts: {
+export async function getMembers(
+  householdId: string
+): Promise<{ id: string; name: string }[]> {
+  return (
+    await db().query<{ id: string; name: string }>(
+      `SELECT u.id, u.name FROM household_members m JOIN users u ON u.id = m.user_id
+       WHERE m.household_id = $1 ORDER BY m.joined_at`,
+      [householdId]
+    )
+  ).rows;
+}
+
+export async function createExpenseFromParsed(opts: {
   householdId: string;
   userId: string;
   parsed: ParsedExpense;
   source: string;
   rawInput: string | null;
   requestId?: string | null;
-}): { id: string; summary: string; created: boolean } {
-  const hh = getHousehold(opts.householdId);
+}): Promise<{ id: string; summary: string; created: boolean }> {
+  const [hh, cats] = await Promise.all([
+    getHousehold(opts.householdId),
+    listCategories(opts.householdId),
+  ]);
   const currency = opts.parsed.currency ?? hh.home_currency;
   const amountMinor = Math.round(opts.parsed.amount * 100);
   const fx = fxRate(currency, hh.home_currency);
 
-  const cats = listCategories(opts.householdId);
   const cat = opts.parsed.category
     ? cats.find((c) => c.name === opts.parsed.category) ?? null
     : null;
   const fallbackCat = cat ?? cats.find((c) => c.name === "Other") ?? null;
 
   if (opts.requestId) {
-    const existing = expenseByRequestId(opts.householdId, opts.userId, opts.requestId);
+    const existing = await expenseByRequestId(opts.householdId, opts.userId, opts.requestId);
     if (existing) return { ...existing, created: false };
   }
 
@@ -86,14 +96,12 @@ export function createExpenseFromParsed(opts: {
   // backdated entry's time is unknown and stays editable-but-empty.
   const spentTime = opts.parsed.spent_on === todayISO() ? nowHHMM() : null;
   try {
-    db()
-      .prepare(
+    await db().query(
         `INSERT INTO expenses
          (id, household_id, user_id, amount_minor, currency, fx_to_home, category_id,
           merchant, note, spent_on, spent_time, source, raw_input, request_id, created_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-      )
-      .run(
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)`,
+      [
         id,
         opts.householdId,
         opts.userId,
@@ -108,13 +116,18 @@ export function createExpenseFromParsed(opts: {
         opts.source,
         opts.rawInput,
         opts.requestId ?? null,
-        Date.now()
-      );
+        Date.now(),
+      ]
+    );
   } catch (error) {
     // Two concurrent retries can both pass the lookup above. The unique index
     // lets one win; the loser returns the already-created expense.
-    if (opts.requestId) {
-      const existing = expenseByRequestId(opts.householdId, opts.userId, opts.requestId);
+    if (opts.requestId && isUniqueViolation(error, "idx_expenses_user_request")) {
+      const existing = await expenseByRequestId(
+        opts.householdId,
+        opts.userId,
+        opts.requestId
+      );
       if (existing) return { ...existing, created: false };
     }
     throw error;
@@ -129,29 +142,28 @@ export function createExpenseFromParsed(opts: {
   };
 }
 
-function expenseByRequestId(
+async function expenseByRequestId(
   householdId: string,
   userId: string,
   requestId: string
-): { id: string; summary: string } | null {
-  const row = db()
-    .prepare(
+): Promise<{ id: string; summary: string } | null> {
+  const row = (
+    await db().query<{
+      id: string;
+      amount_minor: number;
+      currency: string;
+      merchant: string | null;
+      category_name: string | null;
+      category_emoji: string | null;
+    }>(
       `SELECT e.id, e.amount_minor, e.currency, e.merchant,
               c.name AS category_name, c.emoji AS category_emoji
        FROM expenses e
        LEFT JOIN categories c ON c.id = e.category_id
-       WHERE e.household_id = ? AND e.user_id = ? AND e.request_id = ?`
+       WHERE e.household_id = $1 AND e.user_id = $2 AND e.request_id = $3`,
+      [householdId, userId, requestId]
     )
-    .get(householdId, userId, requestId) as
-    | {
-        id: string;
-        amount_minor: number;
-        currency: string;
-        merchant: string | null;
-        category_name: string | null;
-        category_emoji: string | null;
-      }
-    | undefined;
+  ).rows[0];
   if (!row) return null;
 
   const label = row.category_name
@@ -164,19 +176,23 @@ function expenseByRequestId(
   };
 }
 
-export function listRecentExpenses(householdId: string, limit = 30): ExpenseRow[] {
-  return db()
-    .prepare(
+export async function listRecentExpenses(
+  householdId: string,
+  limit = 30
+): Promise<ExpenseRow[]> {
+  return (
+    await db().query<ExpenseRow>(
       `SELECT e.*, u.name AS user_name,
               c.name AS category_name, c.emoji AS category_emoji, c.color AS category_color
        FROM expenses e
        JOIN users u ON u.id = e.user_id
        LEFT JOIN categories c ON c.id = e.category_id
-       WHERE e.household_id = ?
+       WHERE e.household_id = $1
        ORDER BY e.spent_on DESC, e.created_at DESC
-       LIMIT ?`
+       LIMIT $2`,
+      [householdId, limit]
     )
-    .all(householdId, limit) as ExpenseRow[];
+  ).rows;
 }
 
 export type ExpenseExportRow = Pick<
@@ -195,33 +211,39 @@ export type ExpenseExportRow = Pick<
   | "category_name"
 >;
 
-export function listExpensesForExport(householdId: string): ExpenseExportRow[] {
-  return db()
-    .prepare(
+export async function listExpensesForExport(
+  householdId: string
+): Promise<ExpenseExportRow[]> {
+  return (
+    await db().query<ExpenseExportRow>(
       `SELECT e.id, e.amount_minor, e.currency, e.fx_to_home, e.merchant, e.note,
               e.spent_on, e.spent_time, e.source, e.created_at,
               u.name AS user_name, c.name AS category_name
        FROM expenses e
        JOIN users u ON u.id = e.user_id
        LEFT JOIN categories c ON c.id = e.category_id
-       WHERE e.household_id = ?
-       ORDER BY e.spent_on, COALESCE(e.spent_time, ''), e.created_at, e.id`
+       WHERE e.household_id = $1
+       ORDER BY e.spent_on, COALESCE(e.spent_time, ''), e.created_at, e.id`,
+      [householdId]
     )
-    .all(householdId) as ExpenseExportRow[];
+  ).rows;
 }
 
 // Only the person who logged an expense may delete or edit it.
-export function deleteExpense(
+export async function deleteExpense(
   id: string,
   householdId: string,
   userId: string
-): "ok" | "not_found" | "forbidden" {
-  const row = db()
-    .prepare("SELECT user_id FROM expenses WHERE id = ? AND household_id = ?")
-    .get(id, householdId) as { user_id: string } | undefined;
+): Promise<"ok" | "not_found" | "forbidden"> {
+  const row = (
+    await db().query<{ user_id: string }>(
+      "SELECT user_id FROM expenses WHERE id = $1 AND household_id = $2",
+      [id, householdId]
+    )
+  ).rows[0];
   if (!row) return "not_found";
   if (row.user_id !== userId) return "forbidden";
-  db().prepare("DELETE FROM expenses WHERE id = ?").run(id);
+  await db().query("DELETE FROM expenses WHERE id = $1 AND user_id = $2", [id, userId]);
   return "ok";
 }
 
@@ -235,27 +257,28 @@ export type ExpenseEdit = {
   spentTime: string | null; // HH:MM or null
 };
 
-export function updateExpense(
+export async function updateExpense(
   id: string,
   householdId: string,
   userId: string,
   edit: ExpenseEdit
-): "ok" | "not_found" | "forbidden" {
-  const row = db()
-    .prepare("SELECT user_id FROM expenses WHERE id = ? AND household_id = ?")
-    .get(id, householdId) as { user_id: string } | undefined;
+): Promise<"ok" | "not_found" | "forbidden"> {
+  const row = (
+    await db().query<{ user_id: string }>(
+      "SELECT user_id FROM expenses WHERE id = $1 AND household_id = $2",
+      [id, householdId]
+    )
+  ).rows[0];
   if (!row) return "not_found";
   if (row.user_id !== userId) return "forbidden";
 
-  const hh = getHousehold(householdId);
+  const hh = await getHousehold(householdId);
   const fx = fxRate(edit.currency, hh.home_currency);
-  db()
-    .prepare(
-      `UPDATE expenses SET amount_minor = ?, currency = ?, fx_to_home = ?,
-       category_id = ?, merchant = ?, note = ?, spent_on = ?, spent_time = ?
-       WHERE id = ?`
-    )
-    .run(
+  await db().query(
+    `UPDATE expenses SET amount_minor = $1, currency = $2, fx_to_home = $3,
+     category_id = $4, merchant = $5, note = $6, spent_on = $7, spent_time = $8
+     WHERE id = $9`,
+    [
       Math.round(edit.amount * 100),
       edit.currency,
       fx,
@@ -264,8 +287,9 @@ export function updateExpense(
       edit.note,
       edit.spentOn,
       edit.spentTime,
-      id
-    );
+      id,
+    ]
+  );
   return "ok";
 }
 
@@ -288,13 +312,14 @@ export type MonthSummary = {
   count: number;
 };
 
-function monthTotal(householdId: string, month: string): number {
-  const rows = db()
-    .prepare(
+async function monthTotal(householdId: string, month: string): Promise<number> {
+  const rows = (
+    await db().query<{ amount_minor: number; fx_to_home: number }>(
       `SELECT amount_minor, fx_to_home FROM expenses
-       WHERE household_id = ? AND spent_on LIKE ?`
+       WHERE household_id = $1 AND spent_on >= $2 AND spent_on < $3`,
+      [householdId, `${month}-01`, `${nextMonth(month)}-01`]
     )
-    .all(householdId, month + "%") as { amount_minor: number; fx_to_home: number }[];
+  ).rows;
   return rows.reduce((s, r) => s + toHomeMinor(r.amount_minor, r.fx_to_home), 0);
 }
 
@@ -310,29 +335,33 @@ export function nextMonth(month: string): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
 }
 
-export function getMonthSummary(householdId: string, month: string): MonthSummary {
-  const rows = db()
-    .prepare(
+export async function getMonthSummary(
+  householdId: string,
+  month: string
+): Promise<MonthSummary> {
+  const rows = (
+    await db().query<{
+      amount_minor: number;
+      fx_to_home: number;
+      spent_on: string;
+      user_id: string;
+      user_name: string;
+      merchant: string | null;
+      note: string | null;
+      category_name: string | null;
+      category_emoji: string | null;
+      category_color: string | null;
+    }>(
       `SELECT e.amount_minor, e.fx_to_home, e.spent_on, e.user_id, e.merchant, e.note,
               u.name AS user_name,
               c.name AS category_name, c.emoji AS category_emoji, c.color AS category_color
        FROM expenses e
        JOIN users u ON u.id = e.user_id
        LEFT JOIN categories c ON c.id = e.category_id
-       WHERE e.household_id = ? AND e.spent_on LIKE ?`
+       WHERE e.household_id = $1 AND e.spent_on >= $2 AND e.spent_on < $3`,
+      [householdId, `${month}-01`, `${nextMonth(month)}-01`]
     )
-    .all(householdId, month + "%") as {
-    amount_minor: number;
-    fx_to_home: number;
-    spent_on: string;
-    user_id: string;
-    user_name: string;
-    merchant: string | null;
-    note: string | null;
-    category_name: string | null;
-    category_emoji: string | null;
-    category_color: string | null;
-  }[];
+  ).rows;
 
   let total = 0;
   const cats = new Map<
@@ -379,7 +408,7 @@ export function getMonthSummary(householdId: string, month: string): MonthSummar
   return {
     month,
     totalMinor: total,
-    prevTotalMinor: monthTotal(householdId, prevMonth(month)),
+    prevTotalMinor: await monthTotal(householdId, prevMonth(month)),
     byCategory: [...cats.values()]
       .map(({ titles, ...category }) => ({
         ...category,
@@ -439,10 +468,10 @@ export function calculateSpendingPace(
   };
 }
 
-export function getSpendingPace(
+export async function getSpendingPace(
   householdId: string,
   asOfDate: string
-): SpendingPace | null {
+): Promise<SpendingPace | null> {
   const currentMonth = asOfDate.slice(0, 7);
   const asOfDay = Number(asOfDate.slice(8, 10));
   const comparisonMonths = [
@@ -452,17 +481,18 @@ export function getSpendingPace(
   ];
   const earliestDate = comparisonMonths[0] + "-01";
   const nextMonthDate = nextMonth(currentMonth) + "-01";
-  const rows = db()
-    .prepare(
+  const rows = (
+    await db().query<{
+      amount_minor: number;
+      fx_to_home: number;
+      spent_on: string;
+    }>(
       `SELECT amount_minor, fx_to_home, spent_on
        FROM expenses
-       WHERE household_id = ? AND spent_on >= ? AND spent_on < ?`
+       WHERE household_id = $1 AND spent_on >= $2 AND spent_on < $3`,
+      [householdId, earliestDate, nextMonthDate]
     )
-    .all(householdId, earliestDate, nextMonthDate) as {
-    amount_minor: number;
-    fx_to_home: number;
-    spent_on: string;
-  }[];
+  ).rows;
 
   let currentMinor = 0;
   const historical = new Map<string, { totalMinor: number; count: number }>(
@@ -508,58 +538,65 @@ export type Preset = {
   sort: number;
 };
 
-export function listPresets(householdId: string): Preset[] {
-  return db()
-    .prepare("SELECT * FROM presets WHERE household_id = ? ORDER BY sort, rowid")
-    .all(householdId) as Preset[];
+export async function listPresets(householdId: string): Promise<Preset[]> {
+  return (
+    await db().query<Preset>(
+      "SELECT * FROM presets WHERE household_id = $1 ORDER BY sort, id",
+      [householdId]
+    )
+  ).rows;
 }
 
-export function createPreset(opts: {
+export async function createPreset(opts: {
   householdId: string;
   label: string;
   emoji: string;
   amountMinor: number;
   currency: string;
   categoryId: string | null;
-}): Preset {
+}): Promise<Preset> {
   const id = uid();
-  db()
-    .prepare(
+  await db().query(
       `INSERT INTO presets (id, household_id, label, emoji, amount_minor, currency, category_id)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`
+       VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+    [id, opts.householdId, opts.label, opts.emoji, opts.amountMinor, opts.currency, opts.categoryId]
+  );
+  return (await db().query<Preset>("SELECT * FROM presets WHERE id = $1", [id])).rows[0];
+}
+
+export async function deletePreset(id: string, householdId: string): Promise<boolean> {
+  const result = await db().query(
+    "DELETE FROM presets WHERE id = $1 AND household_id = $2",
+    [id, householdId]
+  );
+  return result.rowCount > 0;
+}
+
+export async function logPreset(presetId: string, householdId: string, userId: string) {
+  const p = (
+    await db().query<Preset>(
+      "SELECT * FROM presets WHERE id = $1 AND household_id = $2",
+      [presetId, householdId]
     )
-    .run(id, opts.householdId, opts.label, opts.emoji, opts.amountMinor, opts.currency, opts.categoryId);
-  return db().prepare("SELECT * FROM presets WHERE id = ?").get(id) as Preset;
-}
-
-export function deletePreset(id: string, householdId: string): boolean {
-  const res = db()
-    .prepare("DELETE FROM presets WHERE id = ? AND household_id = ?")
-    .run(id, householdId);
-  return res.changes > 0;
-}
-
-export function logPreset(presetId: string, householdId: string, userId: string) {
-  const p = db()
-    .prepare("SELECT * FROM presets WHERE id = ? AND household_id = ?")
-    .get(presetId, householdId) as Preset | undefined;
+  ).rows[0];
   if (!p) return null;
-  const hh = getHousehold(householdId);
+  const hh = await getHousehold(householdId);
   const fx = fxRate(p.currency, hh.home_currency);
   const cat = p.category_id
-    ? (db().prepare("SELECT name, emoji FROM categories WHERE id = ?").get(p.category_id) as
-        | { name: string; emoji: string }
-        | undefined)
+    ? (
+        await db().query<{ name: string; emoji: string }>(
+          "SELECT name, emoji FROM categories WHERE id = $1 AND household_id = $2",
+          [p.category_id, householdId]
+        )
+      ).rows[0]
     : undefined;
   const id = uid();
-  db()
-    .prepare(
+  await db().query(
       `INSERT INTO expenses
        (id, household_id, user_id, amount_minor, currency, fx_to_home, category_id,
         merchant, note, spent_on, spent_time, source, raw_input, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'preset', ?, ?)`
-    )
-    .run(
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, 'preset', $12, $13)`,
+    [
       id,
       householdId,
       userId,
@@ -572,8 +609,9 @@ export function logPreset(presetId: string, householdId: string, userId: string)
       todayISO(),
       nowHHMM(),
       p.label,
-      Date.now()
-    );
+      Date.now(),
+    ]
+  );
   return {
     id,
     summary: `${formatMinor(p.amount_minor, p.currency)} · ${cat ? cat.emoji + " " + cat.name : p.label} ✓`,

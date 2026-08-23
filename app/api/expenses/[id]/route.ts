@@ -19,7 +19,7 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ id: 
   const user = await getSessionUser();
   if (!user?.householdId) return NextResponse.json({ error: "Not signed in." }, { status: 401 });
   const { id } = await params;
-  return statusResponse(deleteExpense(id, user.householdId, user.id));
+  return statusResponse(await deleteExpense(id, user.householdId, user.id));
 }
 
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -31,14 +31,14 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     return NextResponse.json({ error: "Invalid expense details." }, { status: 400 });
   }
   const body = rawBody as Record<string, unknown>;
-  const categories = listCategories(user.householdId);
+  const categories = await listCategories(user.householdId);
   const validation = validateExpenseEdit(body, categories.map((category) => category.id));
   if (!validation.ok) {
     return NextResponse.json({ error: validation.error }, { status: 400 });
   }
 
   const { id } = await params;
-  const result = updateExpense(
+  const result = await updateExpense(
     id,
     user.householdId,
     user.id,

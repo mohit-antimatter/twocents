@@ -23,7 +23,7 @@ export async function PATCH(
   }
 
   const { id } = await params;
-  const result = setCategoryBudget(
+  const result = await setCategoryBudget(
     id,
     user.householdId,
     (body as Record<string, unknown>).amount
@@ -44,7 +44,7 @@ export async function DELETE(
   }
 
   const { id } = await params;
-  if (!clearCategoryBudget(id, user.householdId)) {
+  if (!(await clearCategoryBudget(id, user.householdId))) {
     return NextResponse.json({ error: "Category not found." }, { status: 404 });
   }
   return NextResponse.json({ ok: true });

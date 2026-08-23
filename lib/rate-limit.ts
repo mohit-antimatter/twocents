@@ -27,51 +27,56 @@ export const RATE_LIMITS = {
  * Fixed-window limiter persisted in the application database. Identifiers are
  * HMACed before storage, so IP addresses and email addresses are not retained.
  */
-export function consumeRateLimit(
+export async function consumeRateLimit(
   scope: string,
   identifier: string,
   policy: RateLimitPolicy,
   now = Date.now()
-): RateLimitDecision {
+): Promise<RateLimitDecision> {
   if (!Number.isInteger(policy.limit) || policy.limit < 1 || policy.windowMs < 1) {
     throw new Error("Invalid rate-limit policy.");
   }
 
   const keyHash = hashRateLimitKey(scope, identifier);
-  const database = db();
-  return database.transaction(() => {
-    const row = database
-      .prepare("SELECT attempts, reset_at FROM rate_limits WHERE key_hash = ?")
-      .get(keyHash) as { attempts: number; reset_at: number } | undefined;
-
-    if (!row || row.reset_at <= now) {
-      const resetAt = now + policy.windowMs;
-      database
-        .prepare(
-          `INSERT INTO rate_limits (key_hash, attempts, reset_at) VALUES (?, 1, ?)
-           ON CONFLICT(key_hash) DO UPDATE SET attempts = 1, reset_at = excluded.reset_at`
-        )
-        .run(keyHash, resetAt);
-      pruneExpiredLimits(now, keyHash);
-      return decision(true, policy.limit - 1, resetAt, now);
-    }
-
-    if (row.attempts >= policy.limit) {
-      return decision(false, 0, row.reset_at, now);
-    }
-
-    const attempts = row.attempts + 1;
-    database
-      .prepare("UPDATE rate_limits SET attempts = ? WHERE key_hash = ?")
-      .run(attempts, keyHash);
-    return decision(true, policy.limit - attempts, row.reset_at, now);
-  }).immediate();
+  const resetAt = now + policy.windowMs;
+  const row = (
+    await db().query<{ attempts: number; reset_at: number; allowed: boolean }>(
+      `WITH consumed AS (
+         INSERT INTO rate_limits (key_hash, attempts, reset_at)
+         VALUES ($1, 1, $2)
+         ON CONFLICT (key_hash) DO UPDATE SET
+           attempts = CASE
+             WHEN rate_limits.reset_at <= $3 THEN 1
+             ELSE rate_limits.attempts + 1
+           END,
+           reset_at = CASE
+             WHEN rate_limits.reset_at <= $3 THEN EXCLUDED.reset_at
+             ELSE rate_limits.reset_at
+           END
+         WHERE rate_limits.reset_at <= $3 OR rate_limits.attempts < $4
+         RETURNING attempts, reset_at
+       )
+       SELECT attempts, reset_at, TRUE AS allowed FROM consumed
+       UNION ALL
+       SELECT attempts, reset_at, FALSE AS allowed
+       FROM rate_limits
+       WHERE key_hash = $1 AND NOT EXISTS (SELECT 1 FROM consumed)`,
+      [keyHash, resetAt, now, policy.limit]
+    )
+  ).rows[0];
+  await pruneExpiredLimits(now, keyHash);
+  return decision(
+    row.allowed,
+    Math.max(0, policy.limit - row.attempts),
+    row.reset_at,
+    now
+  );
 }
 
-export function clearRateLimit(scope: string, identifier: string): void {
-  db()
-    .prepare("DELETE FROM rate_limits WHERE key_hash = ?")
-    .run(hashRateLimitKey(scope, identifier));
+export async function clearRateLimit(scope: string, identifier: string): Promise<void> {
+  await db().query("DELETE FROM rate_limits WHERE key_hash = $1", [
+    hashRateLimitKey(scope, identifier),
+  ]);
 }
 
 export function clientAddress(request: Request): string {
@@ -117,8 +122,9 @@ function decision(
   };
 }
 
-function pruneExpiredLimits(now: number, currentKey: string): void {
-  db()
-    .prepare("DELETE FROM rate_limits WHERE reset_at <= ? AND key_hash != ?")
-    .run(now, currentKey);
+async function pruneExpiredLimits(now: number, currentKey: string): Promise<void> {
+  await db().query(
+    "DELETE FROM rate_limits WHERE reset_at <= $1 AND key_hash != $2",
+    [now, currentKey]
+  );
 }

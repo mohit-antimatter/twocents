@@ -35,18 +35,22 @@ export default async function Home({
   if (!user) redirect("/login");
   if (!user.householdId) redirect("/onboarding");
 
-  const hh = getHousehold(user.householdId);
-  const members = getMembers(user.householdId);
-  const personColors = personColorMap(members);
   const today = localToday();
-  materializeDueRecurring(user.householdId, today);
+  await materializeDueRecurring(user.householdId, today);
   const month = today.slice(0, 7);
-  const summary = getMonthSummary(user.householdId, month);
-  const pace = getSpendingPace(user.householdId, today);
-  const budgetPaces = getCategoryBudgetPaces(user.householdId, today);
-  const presets = listPresets(user.householdId);
-  const recent = listRecentExpenses(user.householdId, 40);
-  const categories = listCategories(user.householdId).map((c) => ({
+  const [hh, members, summary, pace, budgetPaces, presets, recent, categoryRows] =
+    await Promise.all([
+      getHousehold(user.householdId),
+      getMembers(user.householdId),
+      getMonthSummary(user.householdId, month),
+      getSpendingPace(user.householdId, today),
+      getCategoryBudgetPaces(user.householdId, today),
+      listPresets(user.householdId),
+      listRecentExpenses(user.householdId, 40),
+      listCategories(user.householdId),
+    ]);
+  const personColors = personColorMap(members);
+  const categories = categoryRows.map((c) => ({
     id: c.id,
     name: c.name,
     emoji: c.emoji,

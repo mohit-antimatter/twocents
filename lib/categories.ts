@@ -1,4 +1,4 @@
-import { db, uid } from "./db";
+import { db, uid, type Queryable } from "./db";
 
 // First 8 slots use the validated dark-mode categorical palette
 // (adjacent-pair CVD-checked); the tail categories share a recessive neutral —
@@ -67,13 +67,17 @@ export const CATEGORY_KEYWORDS: Record<string, string> = {
   cosmetics: "Personal Care",
 };
 
-export function seedCategories(householdId: string) {
-  const insert = db().prepare(
-    "INSERT INTO categories (id, household_id, name, emoji, color, sort) VALUES (?, ?, ?, ?, ?, ?)"
-  );
-  DEFAULT_CATEGORIES.forEach((c, i) => {
-    insert.run(uid(), householdId, c.name, c.emoji, c.color, i);
-  });
+export async function seedCategories(
+  householdId: string,
+  database: Queryable = db()
+): Promise<void> {
+  for (const [index, category] of DEFAULT_CATEGORIES.entries()) {
+    await database.query(
+      `INSERT INTO categories (id, household_id, name, emoji, color, sort)
+       VALUES ($1, $2, $3, $4, $5, $6)`,
+      [uid(), householdId, category.name, category.emoji, category.color, index]
+    );
+  }
 }
 
 export type Category = {
@@ -86,8 +90,10 @@ export type Category = {
   budget_minor: number | null;
 };
 
-export function listCategories(householdId: string): Category[] {
-  return db()
-    .prepare("SELECT * FROM categories WHERE household_id = ? ORDER BY sort")
-    .all(householdId) as Category[];
+export async function listCategories(householdId: string): Promise<Category[]> {
+  const result = await db().query<Category>(
+    "SELECT * FROM categories WHERE household_id = $1 ORDER BY sort",
+    [householdId]
+  );
+  return result.rows;
 }

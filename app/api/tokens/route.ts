@@ -6,18 +6,24 @@ import { RATE_LIMITS, consumeRateLimit, rateLimitHeaders } from "@/lib/rate-limi
 export async function GET() {
   const user = await getSessionUser();
   if (!user) return NextResponse.json({ error: "Not signed in." }, { status: 401 });
-  const tokens = db()
-    .prepare(
-      "SELECT id, label, created_at, last_used_at FROM api_tokens WHERE user_id = ? ORDER BY created_at DESC"
+  const tokens = (
+    await db().query(
+      `SELECT id, label, created_at, last_used_at
+       FROM api_tokens WHERE user_id = $1 ORDER BY created_at DESC`,
+      [user.id]
     )
-    .all(user.id);
+  ).rows;
   return NextResponse.json({ tokens });
 }
 
 export async function POST(req: Request) {
   const user = await getSessionUser();
   if (!user) return NextResponse.json({ error: "Not signed in." }, { status: 401 });
-  const limit = consumeRateLimit("token-creation-user", user.id, RATE_LIMITS.tokenCreationByUser);
+  const limit = await consumeRateLimit(
+    "token-creation-user",
+    user.id,
+    RATE_LIMITS.tokenCreationByUser
+  );
   if (!limit.allowed) {
     return NextResponse.json(
       { error: "Too many tokens generated. Try again later." },
@@ -36,16 +42,19 @@ export async function POST(req: Request) {
   if (label.length > 60) {
     return NextResponse.json({ error: "Token label must be 60 characters or fewer." }, { status: 400 });
   }
-  const tokenCount = db()
-    .prepare("SELECT COUNT(*) AS count FROM api_tokens WHERE user_id = ?")
-    .get(user.id) as { count: number };
+  const tokenCount = (
+    await db().query<{ count: number }>(
+      "SELECT COUNT(*) AS count FROM api_tokens WHERE user_id = $1",
+      [user.id]
+    )
+  ).rows[0];
   if (tokenCount.count >= 10) {
     return NextResponse.json(
       { error: "You can keep up to 10 active tokens. Revoke one before creating another." },
       { status: 409 }
     );
   }
-  const token = createApiToken(user.id, label);
+  const token = await createApiToken(user.id, label);
   // The plaintext token is returned exactly once; only its hash is stored.
   return NextResponse.json({ ok: true, token });
 }

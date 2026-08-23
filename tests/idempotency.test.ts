@@ -1,28 +1,29 @@
 import assert from "node:assert/strict";
-import { mkdtempSync } from "node:fs";
-import os from "node:os";
-import path from "node:path";
 import test from "node:test";
 
-import { db } from "../lib/db";
+import { closeDatabase, db } from "../lib/db";
 import { createExpenseFromParsed } from "../lib/expenses";
+import { installTestDatabase } from "./db-helpers";
 
-test("reusing a capture request ID returns the original expense", () => {
-  const originalCwd = process.cwd();
-  const tempDir = mkdtempSync(path.join(os.tmpdir(), "twocents-idempotency-"));
-  process.chdir(tempDir);
-
+test("reusing a capture request ID returns the original expense", async () => {
+  await installTestDatabase();
   try {
     const database = db();
-    database
-      .prepare("INSERT INTO users (id, email, name, password_hash, created_at) VALUES (?, ?, ?, ?, ?)")
-      .run("user-1", "test@example.com", "Test", "unused", Date.now());
-    database
-      .prepare("INSERT INTO households (id, name, home_currency, invite_code, created_at) VALUES (?, ?, ?, ?, ?)")
-      .run("household-1", "Test household", "INR", "TESTCODE", Date.now());
-    database
-      .prepare("INSERT INTO categories (id, household_id, name, emoji, color, sort) VALUES (?, ?, ?, ?, ?, ?)")
-      .run("other", "household-1", "Other", "🌀", "#6B7A70", 0);
+    await database.query(
+      `INSERT INTO users (id, email, name, password_hash, created_at)
+       VALUES ($1, $2, $3, $4, $5)`,
+      ["user-1", "test@example.com", "Test", "unused", Date.now()]
+    );
+    await database.query(
+      `INSERT INTO households (id, name, home_currency, invite_code, created_at)
+       VALUES ($1, $2, $3, $4, $5)`,
+      ["household-1", "Test household", "INR", "TESTCODE", Date.now()]
+    );
+    await database.query(
+      `INSERT INTO categories (id, household_id, name, emoji, color, sort)
+       VALUES ($1, $2, $3, $4, $5, $6)`,
+      ["other", "household-1", "Other", "🌀", "#6B7A70", 0]
+    );
 
     const options = {
       householdId: "household-1",
@@ -41,17 +42,17 @@ test("reusing a capture request ID returns the original expense", () => {
       requestId: "65f2d5bc-418f-4cec-95e7-59a673f4c905",
     } as const;
 
-    const first = createExpenseFromParsed(options);
-    const retry = createExpenseFromParsed(options);
-    const count = database.prepare("SELECT COUNT(*) AS count FROM expenses").get() as {
-      count: number;
-    };
+    const first = await createExpenseFromParsed(options);
+    const retry = await createExpenseFromParsed(options);
+    const count = (
+      await database.query<{ count: number }>("SELECT COUNT(*) AS count FROM expenses")
+    ).rows[0];
 
     assert.equal(first.created, true);
     assert.equal(retry.created, false);
     assert.equal(retry.id, first.id);
     assert.equal(count.count, 1);
   } finally {
-    process.chdir(originalCwd);
+    await closeDatabase();
   }
 });

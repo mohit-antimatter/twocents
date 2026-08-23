@@ -1,6 +1,5 @@
 import { listCategories } from "./categories";
 import { db, uid } from "./db";
-import { getHousehold } from "./expenses";
 import { CURRENCIES, fxRate } from "./money";
 import { isValidISODate } from "./validation";
 
@@ -120,43 +119,42 @@ function recurringDateOnOrAfter(
   return candidate;
 }
 
-export function listRecurringRules(householdId: string): RecurringRule[] {
-  return db()
-    .prepare(
+export async function listRecurringRules(householdId: string): Promise<RecurringRule[]> {
+  return (
+    await db().query<RecurringRule>(
       `SELECT r.*, u.name AS user_name,
               c.name AS category_name, c.emoji AS category_emoji
        FROM recurring_expenses r
        JOIN users u ON u.id = r.user_id
        LEFT JOIN categories c ON c.id = r.category_id
-       WHERE r.household_id = ?
-       ORDER BY r.active DESC, r.next_due_on, r.created_at`
+       WHERE r.household_id = $1
+       ORDER BY r.active DESC, r.next_due_on, r.created_at`,
+      [householdId]
     )
-    .all(householdId) as RecurringRule[];
+  ).rows;
 }
 
-export function createRecurringRule(
+export async function createRecurringRule(
   householdId: string,
   userId: string,
   body: Record<string, unknown>,
   today: string
-): { ok: true; id: string } | { ok: false; error: string } {
+): Promise<{ ok: true; id: string } | { ok: false; error: string }> {
   const validation = validateRecurringInput(
     body,
     today,
-    listCategories(householdId).map((category) => category.id)
+    (await listCategories(householdId)).map((category) => category.id)
   );
   if (!validation.ok) return validation;
 
   const value = validation.value;
   const id = uid();
-  db()
-    .prepare(
+  await db().query(
       `INSERT INTO recurring_expenses
        (id, household_id, user_id, label, amount_minor, currency, category_id,
         frequency, anchor_day, next_due_on, active, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?)`
-    )
-    .run(
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 1, $11)`,
+    [
       id,
       householdId,
       userId,
@@ -167,101 +165,123 @@ export function createRecurringRule(
       value.frequency,
       Number(value.nextDueOn.slice(8, 10)),
       value.nextDueOn,
-      Date.now()
-    );
+      Date.now(),
+    ]
+  );
   return { ok: true, id };
 }
 
-export function setRecurringActive(
+export async function setRecurringActive(
   id: string,
   householdId: string,
   userId: string,
   active: boolean,
   today: string
-): "ok" | "not_found" | "forbidden" {
-  const rule = db()
-    .prepare(
+): Promise<"ok" | "not_found" | "forbidden"> {
+  const rule = (
+    await db().query<{
+      user_id: string;
+      frequency: RecurringFrequency;
+      anchor_day: number;
+      next_due_on: string;
+    }>(
       `SELECT user_id, frequency, anchor_day, next_due_on
-       FROM recurring_expenses WHERE id = ? AND household_id = ?`
+       FROM recurring_expenses WHERE id = $1 AND household_id = $2`,
+      [id, householdId]
     )
-    .get(id, householdId) as
-    | {
-        user_id: string;
-        frequency: RecurringFrequency;
-        anchor_day: number;
-        next_due_on: string;
-      }
-    | undefined;
+  ).rows[0];
   if (!rule) return "not_found";
   if (rule.user_id !== userId) return "forbidden";
 
   const nextDueOn = active
     ? recurringDateOnOrAfter(rule.next_due_on, today, rule.frequency, rule.anchor_day)
     : rule.next_due_on;
-  db()
-    .prepare("UPDATE recurring_expenses SET active = ?, next_due_on = ? WHERE id = ?")
-    .run(active ? 1 : 0, nextDueOn, id);
+  await db().query(
+    "UPDATE recurring_expenses SET active = $1, next_due_on = $2 WHERE id = $3",
+    [active ? 1 : 0, nextDueOn, id]
+  );
   return "ok";
 }
 
-export function deleteRecurringRule(
+export async function deleteRecurringRule(
   id: string,
   householdId: string,
   userId: string
-): "ok" | "not_found" | "forbidden" {
-  const rule = db()
-    .prepare("SELECT user_id FROM recurring_expenses WHERE id = ? AND household_id = ?")
-    .get(id, householdId) as { user_id: string } | undefined;
+): Promise<"ok" | "not_found" | "forbidden"> {
+  const rule = (
+    await db().query<{ user_id: string }>(
+      "SELECT user_id FROM recurring_expenses WHERE id = $1 AND household_id = $2",
+      [id, householdId]
+    )
+  ).rows[0];
   if (!rule) return "not_found";
   if (rule.user_id !== userId) return "forbidden";
-  db().prepare("DELETE FROM recurring_expenses WHERE id = ?").run(id);
+  await db().query("DELETE FROM recurring_expenses WHERE id = $1 AND user_id = $2", [
+    id,
+    userId,
+  ]);
   return "ok";
 }
 
-export function materializeDueRecurring(householdId: string, today: string): number {
+export async function materializeDueRecurring(
+  householdId: string,
+  today: string
+): Promise<number> {
   const database = db();
-  return database.transaction(() => {
-    const rules = database
-      .prepare(
+  return database.transaction(async (client) => {
+    const rules = (
+      await client.query<Omit<RecurringRule, "user_name" | "category_name" | "category_emoji">>(
         `SELECT * FROM recurring_expenses
-         WHERE household_id = ? AND active = 1 AND next_due_on <= ?
-         ORDER BY next_due_on, created_at`
+         WHERE household_id = $1 AND active = 1 AND next_due_on <= $2
+         ORDER BY next_due_on, created_at
+         FOR UPDATE`,
+        [householdId, today]
       )
-      .all(householdId, today) as (Omit<RecurringRule, "user_name" | "category_name" | "category_emoji">)[];
-    const household = getHousehold(householdId);
-    const insert = database.prepare(
-      `INSERT INTO expenses
-       (id, household_id, user_id, amount_minor, currency, fx_to_home, category_id,
-        merchant, note, spent_on, spent_time, source, raw_input, request_id,
-        recurring_rule_id, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, NULL, 'recurring', NULL, NULL, ?, ?)`
-    );
-    const advance = database.prepare(
-      "UPDATE recurring_expenses SET next_due_on = ? WHERE id = ?"
-    );
+    ).rows;
+    if (rules.length === 0) return 0;
+    const household = (
+      await client.query<{ home_currency: string }>(
+        "SELECT home_currency FROM households WHERE id = $1",
+        [householdId]
+      )
+    ).rows[0];
+    if (!household) throw new Error("Household not found.");
     let created = 0;
 
     for (const rule of rules) {
       let dueOn = rule.next_due_on;
       while (dueOn <= today) {
-        insert.run(
-          uid(),
-          householdId,
-          rule.user_id,
-          rule.amount_minor,
-          rule.currency,
-          fxRate(rule.currency, household.home_currency),
-          rule.category_id,
-          rule.label,
-          dueOn,
-          rule.id,
-          Date.now()
+        const result = await client.query<{ id: string }>(
+          `INSERT INTO expenses
+           (id, household_id, user_id, amount_minor, currency, fx_to_home, category_id,
+            merchant, note, spent_on, spent_time, source, raw_input, request_id,
+            recurring_rule_id, created_at)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NULL, $9, NULL,
+                   'recurring', NULL, NULL, $10, $11)
+           ON CONFLICT (recurring_rule_id, spent_on) DO NOTHING
+           RETURNING id`,
+          [
+            uid(),
+            householdId,
+            rule.user_id,
+            rule.amount_minor,
+            rule.currency,
+            fxRate(rule.currency, household.home_currency),
+            rule.category_id,
+            rule.label,
+            dueOn,
+            rule.id,
+            Date.now(),
+          ]
         );
-        created += 1;
+        created += result.rowCount;
         dueOn = nextRecurringDate(dueOn, rule.frequency, rule.anchor_day);
       }
-      advance.run(dueOn, rule.id);
+      await client.query(
+        "UPDATE recurring_expenses SET next_due_on = $1 WHERE id = $2",
+        [dueOn, rule.id]
+      );
     }
     return created;
-  }).immediate();
+  });
 }

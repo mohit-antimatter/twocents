@@ -37,14 +37,15 @@ export async function createSession(userId: string): Promise<void> {
   const id = crypto.randomBytes(32).toString("hex");
   const expires = Date.now() + SESSION_DAYS * 86400_000;
   const database = db();
-  database.transaction(() => {
+  await database.transaction(async (client) => {
     if (previousSessionId) {
-      database.prepare("DELETE FROM sessions WHERE id = ?").run(previousSessionId);
+      await client.query("DELETE FROM sessions WHERE id = $1", [previousSessionId]);
     }
-    database
-      .prepare("INSERT INTO sessions (id, user_id, expires_at) VALUES (?, ?, ?)")
-      .run(id, userId, expires);
-  })();
+    await client.query(
+      "INSERT INTO sessions (id, user_id, expires_at) VALUES ($1, $2, $3)",
+      [id, userId, expires]
+    );
+  });
   cookieStore.set(SESSION_COOKIE, id, sessionCookieOptions());
 }
 
@@ -52,13 +53,13 @@ export async function destroySession(): Promise<void> {
   const cookieStore = await cookies();
   const sid = cookieStore.get(SESSION_COOKIE)?.value;
   if (sid) {
-    db().prepare("DELETE FROM sessions WHERE id = ?").run(sid);
+    await db().query("DELETE FROM sessions WHERE id = $1", [sid]);
   }
   cookieStore.delete(SESSION_COOKIE);
 }
 
 export async function destroyAllSessions(userId: string): Promise<void> {
-  db().prepare("DELETE FROM sessions WHERE user_id = ?").run(userId);
+  await db().query("DELETE FROM sessions WHERE user_id = $1", [userId]);
   (await cookies()).delete(SESSION_COOKIE);
 }
 
@@ -66,52 +67,63 @@ export async function getSessionUser(): Promise<SessionUser | null> {
   const cookieStore = await cookies();
   const sid = cookieStore.get(SESSION_COOKIE)?.value;
   if (!sid) return null;
-  const row = db()
-    .prepare(
+  const row = (
+    await db().query<{ id: string; email: string; name: string; expires_at: number }>(
       `SELECT u.id, u.email, u.name, s.expires_at
        FROM sessions s JOIN users u ON u.id = s.user_id
-       WHERE s.id = ?`
+       WHERE s.id = $1`,
+      [sid]
     )
-    .get(sid) as { id: string; email: string; name: string; expires_at: number } | undefined;
+  ).rows[0];
   if (!row || row.expires_at <= Date.now()) {
-    db().prepare("DELETE FROM sessions WHERE id = ?").run(sid);
+    await db().query("DELETE FROM sessions WHERE id = $1", [sid]);
     cookieStore.delete(SESSION_COOKIE);
     return null;
   }
-  const hh = db()
-    .prepare("SELECT household_id FROM household_members WHERE user_id = ? LIMIT 1")
-    .get(row.id) as { household_id: string } | undefined;
+  const hh = (
+    await db().query<{ household_id: string }>(
+      "SELECT household_id FROM household_members WHERE user_id = $1 LIMIT 1",
+      [row.id]
+    )
+  ).rows[0];
   return { ...row, householdId: hh?.household_id ?? null };
 }
 
 /** Resolve a bearer token (iPhone Shortcuts path) to its user. */
-export function getUserFromToken(bearer: string | null): SessionUser | null {
+export async function getUserFromToken(bearer: string | null): Promise<SessionUser | null> {
   if (!bearer?.startsWith("Bearer ")) return null;
   const token = bearer.slice(7).trim();
   if (!token) return null;
   const hash = crypto.createHash("sha256").update(token).digest("hex");
-  const row = db()
-    .prepare(
+  const row = (
+    await db().query<{ id: string; email: string; name: string; token_id: string }>(
       `SELECT u.id, u.email, u.name, t.id AS token_id
        FROM api_tokens t JOIN users u ON u.id = t.user_id
-       WHERE t.token_hash = ?`
+       WHERE t.token_hash = $1`,
+      [hash]
     )
-    .get(hash) as { id: string; email: string; name: string; token_id: string } | undefined;
+  ).rows[0];
   if (!row) return null;
-  db()
-    .prepare("UPDATE api_tokens SET last_used_at = ? WHERE id = ?")
-    .run(Date.now(), row.token_id);
-  const hh = db()
-    .prepare("SELECT household_id FROM household_members WHERE user_id = ? LIMIT 1")
-    .get(row.id) as { household_id: string } | undefined;
+  await db().query("UPDATE api_tokens SET last_used_at = $1 WHERE id = $2", [
+    Date.now(),
+    row.token_id,
+  ]);
+  const hh = (
+    await db().query<{ household_id: string }>(
+      "SELECT household_id FROM household_members WHERE user_id = $1 LIMIT 1",
+      [row.id]
+    )
+  ).rows[0];
   return { id: row.id, email: row.email, name: row.name, householdId: hh?.household_id ?? null };
 }
 
-export function createApiToken(userId: string, label: string): string {
+export async function createApiToken(userId: string, label: string): Promise<string> {
   const token = "tc_" + crypto.randomBytes(24).toString("hex");
   const hash = crypto.createHash("sha256").update(token).digest("hex");
-  db()
-    .prepare("INSERT INTO api_tokens (id, user_id, token_hash, label, created_at) VALUES (?, ?, ?, ?, ?)")
-    .run(uid(), userId, hash, label, Date.now());
+  await db().query(
+    `INSERT INTO api_tokens (id, user_id, token_hash, label, created_at)
+     VALUES ($1, $2, $3, $4, $5)`,
+    [uid(), userId, hash, label, Date.now()]
+  );
   return token;
 }

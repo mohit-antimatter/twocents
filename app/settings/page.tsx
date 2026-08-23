@@ -23,22 +23,34 @@ export default async function SettingsPage() {
   if (!user) redirect("/login");
   if (!user.householdId) redirect("/onboarding");
 
-  const hh = getHousehold(user.householdId);
   const today = localToday();
-  materializeDueRecurring(user.householdId, today);
-  const members = getMembers(user.householdId);
+  await materializeDueRecurring(user.householdId, today);
+  const [hh, members, presets, categories, recurring, membershipResult, tokenResult] =
+    await Promise.all([
+      getHousehold(user.householdId),
+      getMembers(user.householdId),
+      listPresets(user.householdId),
+      listCategories(user.householdId),
+      listRecurringRules(user.householdId),
+      db().query<{ role: string }>(
+        `SELECT role FROM household_members
+         WHERE household_id = $1 AND user_id = $2`,
+        [user.householdId, user.id]
+      ),
+      db().query<{
+        id: string;
+        label: string;
+        created_at: number;
+        last_used_at: number | null;
+      }>(
+        `SELECT id, label, created_at, last_used_at
+         FROM api_tokens WHERE user_id = $1 ORDER BY created_at DESC`,
+        [user.id]
+      ),
+    ]);
   const personColors = personColorMap(members);
-  const presets = listPresets(user.householdId);
-  const categories = listCategories(user.householdId);
-  const recurring = listRecurringRules(user.householdId);
-  const membership = db()
-    .prepare("SELECT role FROM household_members WHERE household_id = ? AND user_id = ?")
-    .get(user.householdId, user.id) as { role: string } | undefined;
-  const tokens = db()
-    .prepare(
-      "SELECT id, label, created_at, last_used_at FROM api_tokens WHERE user_id = ? ORDER BY created_at DESC"
-    )
-    .all(user.id) as { id: string; label: string; created_at: number; last_used_at: number | null }[];
+  const membership = membershipResult.rows[0];
+  const tokens = tokenResult.rows;
 
   return (
     <main className="app-page">

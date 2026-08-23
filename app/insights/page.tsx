@@ -30,16 +30,20 @@ export default async function InsightsPage({
   if (!user.householdId) redirect("/onboarding");
 
   const today = localToday();
-  materializeDueRecurring(user.householdId, today);
+  await materializeDueRecurring(user.householdId, today);
   const currentMonth = today.slice(0, 7);
   const query = await searchParams;
   const month = /^\d{4}-\d{2}$/.test(query.m ?? "") ? query.m! : currentMonth;
 
-  const hh = getHousehold(user.householdId);
-  const members = getMembers(user.householdId);
+  const [hh, members, s, budgetPaces] = await Promise.all([
+    getHousehold(user.householdId),
+    getMembers(user.householdId),
+    getMonthSummary(user.householdId, month),
+    month === currentMonth
+      ? getCategoryBudgetPaces(user.householdId, today)
+      : Promise.resolve([]),
+  ]);
   const personColors = personColorMap(members);
-  const s = getMonthSummary(user.householdId, month);
-  const budgetPaces = month === currentMonth ? getCategoryBudgetPaces(user.householdId, today) : [];
 
   const monthLabel = new Date(month + "-01T12:00:00").toLocaleDateString("en-GB", {
     month: "long",

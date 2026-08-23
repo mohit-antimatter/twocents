@@ -17,7 +17,7 @@ TwoCents is a **shared household expense ledger for couples** — a product from
 7. **No red pass/fail budget states** anywhere, ever (research: shame UX kills retention). Progress/pace framing only.
 8. **Design**: dark-first "midnight ledger." Tokens in `app/globals.css`; person identity colors mint `#7fe0b2` (member 1) / amber `#f0b860` (member 2) via `lib/colors.ts`, always paired with a name/initial, never color alone. Charts use the CVD-validated dark palette hardcoded in `lib/categories.ts` (first 8 categories) — do not invent new chart hues.
 
-## Current state (all browser-verified)
+## Current state
 
 Working end to end: signup/login (cookie sessions, bcrypt) → household create/join via invite code → NL quick-add (`swiggy 450`, `uber 340 yesterday`, `petrol 2k`, `$40 dinner`, `three hundred on chai`) → voice entry with transcript review before saving (Web Speech API feeding the same parser; needs HTTPS so works on localhost but not LAN-IP) → structured capture confirmation with Undo/Edit → one-tap presets → weekly/monthly recurring schedules → shared ledger with per-person dots → tap-to-edit sheet (amount, currency, category, merchant, note, date, time; delete inside sheet) → insights (month nav, hero total + delta vs prev month, daily bars, expandable category/title breakdowns, who-paid split) → settings (invite code, presets CRUD, recurring schedules, API tokens, Shortcuts setup guide) → Shortcuts endpoint (bearer auth; returns `{"message": "₹450 · 🍜 Food & Drinks · Swiggy ✓"}` for the notification).
 
@@ -37,9 +37,11 @@ Gentle category guides were completed and browser-verified on 2026-08-23. Either
 
 Household-help categorization and Insights drill-downs were completed and browser-verified on 2026-08-23. Household Help is a dedicated neutral category for maid, cook, nanny, driver, cleaner, housekeeper/housekeeping, babysitter, gardener, and laundry; it is seeded for new households and idempotently backfilled for existing ones. Insights category rows now expand without client JavaScript to group that month’s expenses by merchant/title, case-insensitively, with counts and home-currency totals. This is deliberately a view over existing titles, not a formal subcategory system. Regression suite: `npm test` (42 tests at time of update); parser roles, existing-household migration/idempotency, household-scoped title grouping, responsive collapsed/expanded UI, keyboard focusability, console checks, TypeScript, lint, and production build pass.
 
+PostgreSQL persistence was implemented on 2026-08-23 as the first deployment step. Every data access path is async and uses parameterized PostgreSQL queries through a small `pg` pool; multi-step writes use one checked-out client per transaction. Rate-limit consumption is an atomic upsert, recurring materialization locks due rules and uses conflict-safe inserts, and epoch-millisecond/money columns use PostgreSQL `BIGINT` rather than 32-bit `INTEGER`. Tests run against in-process PGlite, so all 42 regressions now exercise PostgreSQL SQL semantics without needing Docker. `scripts/migrate-sqlite-to-postgres.ts` imports the gitignored legacy ledger read-only into an empty target and aborts if target application tables contain data. A live hosted PostgreSQL database has not been provisioned yet, so the `pg` network path and real-data import still need verification in the next deployment step.
+
 ## Architecture / file map
 
-- `lib/db.ts` — better-sqlite3 singleton (`global.__twocents_db`), schema (Postgres-compatible: TEXT ids, INTEGER ms), and `migrate()` for additive ALTERs. Web captures store a nullable `request_id` with a per-user unique index for idempotency; recurring charges store `recurring_rule_id` with a per-rule/date unique index.
+- `lib/db.ts` — PostgreSQL pool (`global.__twocents_db`), parameterized query/transaction interface, idempotent schema setup, and additive migrations. Web captures store a nullable `request_id` with a per-user unique index for idempotency; recurring charges store `recurring_rule_id` with a per-rule/date unique index. Production/local app startup requires `DATABASE_URL`.
 - `lib/auth.ts` — sessions (cookie `tc_session`, 90d, `HttpOnly` + `SameSite=Lax` + `Secure` in production), session rotation/revocation, bcrypt, bearer-token resolution (SHA-256 hashes in `api_tokens`).
 - `lib/rate-limit.ts` — database-backed fixed-window limits for auth/invite/token abuse; request identifiers are HMACed before storage.
 - `lib/households.ts` — transactional household creation/joining, two-person enforcement, single-use invite rotation, and owner-only manual invite replacement.
@@ -54,17 +56,19 @@ Household-help categorization and Insights drill-downs were completed and browse
 - `components/ExpenseList.tsx` — list + EditSheet modal. `components/QuickAdd.tsx` — capture bar + voice. `components/RecurringManager.tsx` owns recurring schedule creation and controls. `components/BudgetManager.tsx` owns category-guide settings; `components/CategoryBudgetPace.tsx` renders the compact Home and full Insights views. `components/SpendingPace.tsx` renders the home pace card; the calculation/query lives in `lib/expenses.ts`. CSV serialization and filename safety live in `lib/export.ts`.
 - PWA: `app/manifest.ts`, `public/sw.js` (registers only in production), icons generated by `scripts/gen-icons.mjs`.
 
-## Data model (SQLite, `data/twocents.db` — gitignored, contains REAL user data; never commit or wipe)
+## Data model (PostgreSQL; legacy SQLite remains at `data/twocents.db`, gitignored, contains REAL user data; never commit or wipe)
 
-users · sessions · households (home_currency, invite_code) · household_members · categories (per-household, seeded on create, `budget_minor` nullable shared monthly guide) · recurring_expenses (payer, label, amount/currency/category, weekly|monthly, anchor_day, next_due_on, active) · expenses (amount_minor INT, currency, fx_to_home REAL, category_id, merchant, note, spent_on 'YYYY-MM-DD', spent_time 'HH:MM' nullable, source web|voice|preset|shortcut|recurring, raw_input, recurring_rule_id nullable) · presets · api_tokens (hash only).
+users · sessions · households (home_currency, invite_code) · household_members · categories (per-household, seeded on create, `budget_minor` nullable shared monthly guide) · recurring_expenses (payer, label, amount/currency/category, weekly|monthly, anchor_day, next_due_on, active) · expenses (`amount_minor BIGINT`, currency, `fx_to_home DOUBLE PRECISION`, category_id, merchant, note, spent_on 'YYYY-MM-DD', spent_time 'HH:MM' nullable, source web|voice|preset|shortcut|recurring, raw_input, recurring_rule_id nullable) · presets · api_tokens (hash only).
 
 Money rule: integers in minor units; `home_minor = round(amount_minor * fx_to_home)`.
 
 ## Dev workflow & hard-won gotchas
 
-- Run: `npm run dev` (port 3000). Checks: `npm test`, `npx tsc --noEmit`, `npm run lint`, and `npm run build`.
+- Copy `.env.example` to `.env.local`, add PostgreSQL URLs and `RATE_LIMIT_SECRET`, then run `npm run dev` (port 3000). Checks: `npm test`, `npx tsc --noEmit`, `npm run lint`, and `npm run build`.
 - **NEVER run `npm run build` while the dev server is running.** Both write `.next/`; the build corrupts the live server (this happened; symptom: every route 500s with `Cannot find module './NNN.js'`). Recovery: stop server, `rm -rf .next`, restart.
-- **Schema changes need a server restart**: the DB singleton is cached in `global`, so `migrate()` only runs on a fresh process. Symptom of forgetting: `SqliteError: table X has no column named Y`.
+- **Schema changes need a server restart**: the PostgreSQL pool and one-time schema initialization are cached in `global`.
+- Tests use PGlite through `tests/db-helpers.ts`; this catches PostgreSQL syntax/transaction behavior but does not replace one live `pg` connection test before deployment.
+- Import the existing ledger with `npm run db:import-sqlite -- data/twocents.db`. The source is opened read-only and the import aborts if target application tables are non-empty. Keep the SQLite file as a backup until production verification is complete.
 - Tailwind: don't stack `w-full` (in a shared class string) with `w-32`-style overrides — stylesheet order wins, not class order. Pattern in EditSheet: base class has no width; add `w-full` / `flex-1 min-w-0` / `w-32 shrink-0` per use.
 - Settings becomes a two-column grid at desktop widths, so each child section is still only about 400px wide. Keep row controls stacked or intrinsically narrow; do not assume a desktop viewport means a full-width child card.
 - tsconfig target is ES2017 (spread-of-Map-iterators needs it).
@@ -75,7 +79,7 @@ Money rule: integers in minor units; `home_minor = round(amount_minor * fx_to_ho
 
 Completed: CSV export; glanceable spend-so-far vs typical-by-this-date pace; recurring expenses; gentle per-category guides; Household Help categorization; Insights category/title drill-downs.
 
-1. Deployment: GitHub done; next is Vercel + Postgres swap (schema is ready) — owner is deployment-beginner, explain steps plainly.
+1. Deployment: GitHub and the PostgreSQL code migration are done. Next: provision hosted PostgreSQL, import and verify the existing ledger, then configure/deploy Vercel — owner is deployment-beginner, explain steps plainly.
 
 Deferred by the owner: private expenses are not needed for now. Formal subcategories are also unnecessary unless later evidence supports them; the expandable title grouping covers the current need without adding capture friction.
 

@@ -1,7 +1,4 @@
 import assert from "node:assert/strict";
-import { mkdtempSync } from "node:fs";
-import os from "node:os";
-import path from "node:path";
 import test from "node:test";
 
 import {
@@ -11,7 +8,8 @@ import {
   setCategoryBudget,
   validateBudgetAmount,
 } from "../lib/budgets";
-import { db } from "../lib/db";
+import { closeDatabase, db } from "../lib/db";
+import { installTestDatabase } from "./db-helpers";
 
 const category = {
   id: "food",
@@ -50,50 +48,56 @@ test("validates positive safe monthly amounts", () => {
   assert.equal(validateBudgetAmount(Number.POSITIVE_INFINITY).ok, false);
 });
 
-test("budget writes and pace reads stay inside the household", () => {
-  const originalCwd = process.cwd();
-  process.chdir(mkdtempSync(path.join(os.tmpdir(), "twocents-budgets-")));
-
+test("budget writes and pace reads stay inside the household", async () => {
+  await installTestDatabase();
   try {
     const database = db();
-    database
-      .prepare("INSERT INTO users (id, email, name, password_hash, created_at) VALUES (?, ?, ?, ?, ?)")
-      .run("user-1", "budgets@example.com", "Budget", "unused", Date.now());
+    await database.query(
+      `INSERT INTO users (id, email, name, password_hash, created_at)
+       VALUES ($1, $2, $3, $4, $5)`,
+      ["user-1", "budgets@example.com", "Budget", "unused", Date.now()]
+    );
     for (const [id, code] of [["household-1", "BUDGET01"], ["household-2", "BUDGET02"]]) {
-      database
-        .prepare("INSERT INTO households (id, name, home_currency, invite_code, created_at) VALUES (?, ?, 'INR', ?, ?)")
-        .run(id, id, code, Date.now());
+      await database.query(
+        `INSERT INTO households (id, name, home_currency, invite_code, created_at)
+         VALUES ($1, $2, 'INR', $3, $4)`,
+        [id, id, code, Date.now()]
+      );
     }
-    const insertCategory = database.prepare(
-      "INSERT INTO categories (id, household_id, name, emoji, color, sort) VALUES (?, ?, ?, '🍜', '#3987e5', 0)"
-    );
-    insertCategory.run("food-1", "household-1", "Food & Drinks");
-    insertCategory.run("food-2", "household-2", "Food & Drinks");
+    for (const [id, householdId] of [["food-1", "household-1"], ["food-2", "household-2"]]) {
+      await database.query(
+        `INSERT INTO categories (id, household_id, name, emoji, color, sort)
+         VALUES ($1, $2, 'Food & Drinks', '🍜', '#3987e5', 0)`,
+        [id, householdId]
+      );
+    }
 
-    assert.deepEqual(setCategoryBudget("food-1", "household-1", 300), { ok: true });
-    assert.equal(setCategoryBudget("food-2", "household-1", 300).ok, false);
+    assert.deepEqual(await setCategoryBudget("food-1", "household-1", 300), { ok: true });
+    assert.equal((await setCategoryBudget("food-2", "household-1", 300)).ok, false);
 
-    const insertExpense = database.prepare(
-      `INSERT INTO expenses
-       (id, household_id, user_id, amount_minor, currency, fx_to_home, category_id,
-        spent_on, source, created_at)
-       VALUES (?, ?, 'user-1', ?, 'INR', 1, ?, ?, 'web', ?)`
-    );
-    insertExpense.run("current", "household-1", 12_000, "food-1", "2026-08-10", Date.now());
-    insertExpense.run("future", "household-1", 99_000, "food-1", "2026-08-11", Date.now());
-    insertExpense.run("other", "household-2", 99_000, "food-2", "2026-08-10", Date.now());
+    for (const [id, householdId, amount, categoryId, date] of [
+      ["current", "household-1", 12_000, "food-1", "2026-08-10"],
+      ["future", "household-1", 99_000, "food-1", "2026-08-11"],
+      ["other", "household-2", 99_000, "food-2", "2026-08-10"],
+    ] as const) {
+      await database.query(
+        `INSERT INTO expenses
+         (id, household_id, user_id, amount_minor, currency, fx_to_home, category_id,
+          spent_on, source, created_at)
+         VALUES ($1, $2, 'user-1', $3, 'INR', 1, $4, $5, 'web', $6)`,
+        [id, householdId, amount, categoryId, date, Date.now()]
+      );
+    }
 
-    const paces = getCategoryBudgetPaces("household-1", "2026-08-10");
+    const paces = await getCategoryBudgetPaces("household-1", "2026-08-10");
     assert.equal(paces.length, 1);
     assert.equal(paces[0].spentMinor, 12_000);
     assert.equal(paces[0].budgetMinor, 30_000);
 
-    assert.equal(clearCategoryBudget("food-2", "household-1"), false);
-    assert.equal(clearCategoryBudget("food-1", "household-1"), true);
-    assert.deepEqual(getCategoryBudgetPaces("household-1", "2026-08-10"), []);
+    assert.equal(await clearCategoryBudget("food-2", "household-1"), false);
+    assert.equal(await clearCategoryBudget("food-1", "household-1"), true);
+    assert.deepEqual(await getCategoryBudgetPaces("household-1", "2026-08-10"), []);
   } finally {
-    global.__twocents_db?.close();
-    global.__twocents_db = undefined;
-    process.chdir(originalCwd);
+    await closeDatabase();
   }
 });

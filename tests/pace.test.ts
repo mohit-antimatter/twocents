@@ -1,11 +1,9 @@
 import assert from "node:assert/strict";
-import { mkdtempSync } from "node:fs";
-import os from "node:os";
-import path from "node:path";
 import test from "node:test";
 
-import { db } from "../lib/db";
+import { closeDatabase, db } from "../lib/db";
 import { calculateSpendingPace, getSpendingPace } from "../lib/expenses";
+import { installTestDatabase } from "./db-helpers";
 
 test("uses the median of three comparable months", () => {
   const pace = calculateSpendingPace(23, 25_000, [
@@ -50,27 +48,24 @@ test("does not claim a typical pace from one month of history", () => {
   );
 });
 
-test("compares only this household and only spend through the same day", () => {
-  const originalCwd = process.cwd();
-  process.chdir(mkdtempSync(path.join(os.tmpdir(), "twocents-pace-")));
-
+test("compares only this household and only spend through the same day", async () => {
+  await installTestDatabase();
   try {
     const database = db();
-    database
-      .prepare("INSERT INTO users (id, email, name, password_hash, created_at) VALUES (?, ?, ?, ?, ?)")
-      .run("user-1", "pace@example.com", "Pace", "unused", Date.now());
+    await database.query(
+      `INSERT INTO users (id, email, name, password_hash, created_at)
+       VALUES ($1, $2, $3, $4, $5)`,
+      ["user-1", "pace@example.com", "Pace", "unused", Date.now()]
+    );
     for (const [id, name] of [["household-1", "Us"], ["household-2", "Other"]]) {
-      database
-        .prepare("INSERT INTO households (id, name, home_currency, invite_code, created_at) VALUES (?, ?, 'INR', ?, ?)")
-        .run(id, name, id === "household-1" ? "PACE0001" : "PACE0002", Date.now());
+      await database.query(
+        `INSERT INTO households (id, name, home_currency, invite_code, created_at)
+         VALUES ($1, $2, 'INR', $3, $4)`,
+        [id, name, id === "household-1" ? "PACE0001" : "PACE0002", Date.now()]
+      );
     }
 
-    const insert = database.prepare(
-      `INSERT INTO expenses
-       (id, household_id, user_id, amount_minor, currency, fx_to_home, spent_on, source, created_at)
-       VALUES (?, ?, 'user-1', ?, 'INR', 1, ?, 'web', ?)`
-    );
-    [
+    const expenses = [
       ["may", "household-1", 10_000, "2026-05-20"],
       ["jun", "household-1", 20_000, "2026-06-20"],
       ["jul", "household-1", 30_000, "2026-07-20"],
@@ -78,17 +73,21 @@ test("compares only this household and only spend through the same day", () => {
       ["aug", "household-1", 25_000, "2026-08-23"],
       ["aug-future", "household-1", 80_000, "2026-08-24"],
       ["other", "household-2", 99_000, "2026-07-20"],
-    ].forEach(([id, householdId, amountMinor, spentOn], index) =>
-      insert.run(id, householdId, amountMinor, spentOn, Date.now() + index)
-    );
+    ] as const;
+    for (const [index, [id, householdId, amountMinor, spentOn]] of expenses.entries()) {
+      await database.query(
+        `INSERT INTO expenses
+         (id, household_id, user_id, amount_minor, currency, fx_to_home, spent_on, source, created_at)
+         VALUES ($1, $2, 'user-1', $3, 'INR', 1, $4, 'web', $5)`,
+        [id, householdId, amountMinor, spentOn, Date.now() + index]
+      );
+    }
 
-    const pace = getSpendingPace("household-1", "2026-08-23");
+    const pace = await getSpendingPace("household-1", "2026-08-23");
     assert.equal(pace?.currentMinor, 25_000);
     assert.equal(pace?.typicalMinor, 20_000);
     assert.equal(pace?.differenceMinor, 5_000);
   } finally {
-    global.__twocents_db?.close();
-    global.__twocents_db = undefined;
-    process.chdir(originalCwd);
+    await closeDatabase();
   }
 });

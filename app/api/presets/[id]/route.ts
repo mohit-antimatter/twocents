@@ -6,7 +6,7 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ id: 
   const user = await getSessionUser();
   if (!user?.householdId) return NextResponse.json({ error: "Not signed in." }, { status: 401 });
   const { id } = await params;
-  const ok = deletePreset(id, user.householdId);
+  const ok = await deletePreset(id, user.householdId);
   return ok
     ? NextResponse.json({ ok: true })
     : NextResponse.json({ error: "Not found." }, { status: 404 });

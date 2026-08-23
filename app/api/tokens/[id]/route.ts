@@ -6,10 +6,11 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ id: 
   const user = await getSessionUser();
   if (!user) return NextResponse.json({ error: "Not signed in." }, { status: 401 });
   const { id } = await params;
-  const res = db()
-    .prepare("DELETE FROM api_tokens WHERE id = ? AND user_id = ?")
-    .run(id, user.id);
-  return res.changes > 0
+  const result = await db().query(
+    "DELETE FROM api_tokens WHERE id = $1 AND user_id = $2",
+    [id, user.id]
+  );
+  return result.rowCount > 0
     ? NextResponse.json({ ok: true })
     : NextResponse.json({ error: "Not found." }, { status: 404 });
 }

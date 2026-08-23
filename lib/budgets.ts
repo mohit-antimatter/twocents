@@ -42,28 +42,33 @@ export function validateBudgetAmount(
   return { ok: true, amountMinor };
 }
 
-export function setCategoryBudget(
+export async function setCategoryBudget(
   categoryId: string,
   householdId: string,
   rawAmount: unknown
-): { ok: true } | { ok: false; error: string; status: 400 | 404 } {
+): Promise<{ ok: true } | { ok: false; error: string; status: 400 | 404 }> {
   const validation = validateBudgetAmount(rawAmount);
   if (!validation.ok) return { ...validation, status: 400 };
 
-  const result = db()
-    .prepare("UPDATE categories SET budget_minor = ? WHERE id = ? AND household_id = ?")
-    .run(validation.amountMinor, categoryId, householdId);
-  if (result.changes === 0) {
+  const result = await db().query(
+    "UPDATE categories SET budget_minor = $1 WHERE id = $2 AND household_id = $3",
+    [validation.amountMinor, categoryId, householdId]
+  );
+  if (result.rowCount === 0) {
     return { ok: false, error: "Category not found.", status: 404 };
   }
   return { ok: true };
 }
 
-export function clearCategoryBudget(categoryId: string, householdId: string): boolean {
-  const result = db()
-    .prepare("UPDATE categories SET budget_minor = NULL WHERE id = ? AND household_id = ?")
-    .run(categoryId, householdId);
-  return result.changes > 0;
+export async function clearCategoryBudget(
+  categoryId: string,
+  householdId: string
+): Promise<boolean> {
+  const result = await db().query(
+    "UPDATE categories SET budget_minor = NULL WHERE id = $1 AND household_id = $2",
+    [categoryId, householdId]
+  );
+  return result.rowCount > 0;
 }
 
 export function calculateCategoryBudgetPace(
@@ -107,28 +112,29 @@ export function calculateCategoryBudgetPace(
   };
 }
 
-export function getCategoryBudgetPaces(
+export async function getCategoryBudgetPaces(
   householdId: string,
   asOfDate: string
-): CategoryBudgetPace[] {
+): Promise<CategoryBudgetPace[]> {
   const [year, month, day] = asOfDate.split("-").map(Number);
   const daysInMonth = new Date(year, month, 0).getDate();
-  const budgeted = listCategories(householdId).filter(
+  const budgeted = (await listCategories(householdId)).filter(
     (category) => category.budget_minor !== null && category.budget_minor > 0
   );
   if (budgeted.length === 0) return [];
 
-  const rows = db()
-    .prepare(
+  const rows = (
+    await db().query<{
+      category_id: string | null;
+      amount_minor: number;
+      fx_to_home: number;
+    }>(
       `SELECT category_id, amount_minor, fx_to_home
        FROM expenses
-       WHERE household_id = ? AND spent_on >= ? AND spent_on <= ?`
+       WHERE household_id = $1 AND spent_on >= $2 AND spent_on <= $3`,
+      [householdId, `${asOfDate.slice(0, 7)}-01`, asOfDate]
     )
-    .all(householdId, `${asOfDate.slice(0, 7)}-01`, asOfDate) as {
-    category_id: string | null;
-    amount_minor: number;
-    fx_to_home: number;
-  }[];
+  ).rows;
   const totals = new Map<string, number>();
   for (const row of rows) {
     if (!row.category_id) continue;

@@ -19,8 +19,11 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Invalid request ID." }, { status: 400 });
   }
 
-  const hh = getHousehold(user.householdId);
-  const categories = listCategories(user.householdId).map((c) => c.name);
+  const [hh, categoryRows] = await Promise.all([
+    getHousehold(user.householdId),
+    listCategories(user.householdId),
+  ]);
+  const categories = categoryRows.map((c) => c.name);
   const parsed = parseExpenseText(text.trim(), {
     categories,
     homeCurrency: hh.home_currency,
@@ -30,7 +33,7 @@ export async function POST(req: Request) {
   const parseError = parsedExpenseError(parsed);
   if (parseError) return NextResponse.json({ error: parseError }, { status: 422 });
 
-  const { id, summary, created } = createExpenseFromParsed({
+  const { id, summary, created } = await createExpenseFromParsed({
     householdId: user.householdId,
     userId: user.id,
     parsed,

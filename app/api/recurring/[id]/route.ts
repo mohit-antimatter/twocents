@@ -44,10 +44,10 @@ export async function PATCH(
 
   const { id } = await params;
   const today = localToday();
-  const result = setRecurringActive(id, user.householdId, user.id, active, today);
+  const result = await setRecurringActive(id, user.householdId, user.id, active, today);
   const error = statusResponse(result);
   if (error) return error;
-  const logged = active ? materializeDueRecurring(user.householdId, today) : 0;
+  const logged = active ? await materializeDueRecurring(user.householdId, today) : 0;
   return NextResponse.json({ ok: true, logged });
 }
 
@@ -60,7 +60,7 @@ export async function DELETE(
     return NextResponse.json({ error: "Not signed in." }, { status: 401 });
   }
   const { id } = await params;
-  const result = deleteRecurringRule(id, user.householdId, user.id);
+  const result = await deleteRecurringRule(id, user.householdId, user.id);
   const error = statusResponse(result);
   return error ?? NextResponse.json({ ok: true });
 }

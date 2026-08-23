@@ -6,7 +6,7 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
   const user = await getSessionUser();
   if (!user?.householdId) return NextResponse.json({ error: "Not signed in." }, { status: 401 });
   const { id } = await params;
-  const result = logPreset(id, user.householdId, user.id);
+  const result = await logPreset(id, user.householdId, user.id);
   return result
     ? NextResponse.json({ ok: true, ...result })
     : NextResponse.json({ error: "Preset not found." }, { status: 404 });

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { db, uid } from "@/lib/db";
+import { db, isUniqueViolation, uid } from "@/lib/db";
 import { hashPassword, createSession } from "@/lib/auth";
 import {
   RATE_LIMITS,
@@ -9,7 +9,7 @@ import {
 } from "@/lib/rate-limit";
 
 export async function POST(req: Request) {
-  const limit = consumeRateLimit(
+  const limit = await consumeRateLimit(
     "signup-address",
     clientAddress(req),
     RATE_LIMITS.signupByAddress
@@ -36,14 +36,28 @@ export async function POST(req: Request) {
       { status: 400 }
     );
   }
-  const existing = db().prepare("SELECT id FROM users WHERE email = ?").get(email);
+  const existing = (
+    await db().query<{ id: string }>("SELECT id FROM users WHERE email = $1", [email])
+  ).rows[0];
   if (existing) {
     return NextResponse.json({ error: "An account with that email already exists." }, { status: 409 });
   }
   const id = uid();
-  db()
-    .prepare("INSERT INTO users (id, email, name, password_hash, created_at) VALUES (?, ?, ?, ?, ?)")
-    .run(id, email, name, hashPassword(password), Date.now());
+  try {
+    await db().query(
+      `INSERT INTO users (id, email, name, password_hash, created_at)
+       VALUES ($1, $2, $3, $4, $5)`,
+      [id, email, name, hashPassword(password), Date.now()]
+    );
+  } catch (error) {
+    if (isUniqueViolation(error)) {
+      return NextResponse.json(
+        { error: "An account with that email already exists." },
+        { status: 409 }
+      );
+    }
+    throw error;
+  }
   await createSession(id);
   return NextResponse.json({ ok: true });
 }

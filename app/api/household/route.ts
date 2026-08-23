@@ -42,26 +42,30 @@ export async function POST(req: Request) {
 
   if (body.action === "create") {
     return resultResponse(
-      createHousehold(user.id, { name: body.name, homeCurrency: body.homeCurrency })
+      await createHousehold(user.id, { name: body.name, homeCurrency: body.homeCurrency })
     );
   }
 
   if (body.action === "join") {
-    const limit = consumeRateLimit("household-join-user", user.id, RATE_LIMITS.joinByUser);
+    const limit = await consumeRateLimit(
+      "household-join-user",
+      user.id,
+      RATE_LIMITS.joinByUser
+    );
     if (!limit.allowed) {
       return NextResponse.json(
         { error: "Too many invite attempts. Try again in a few minutes." },
         { status: 429, headers: rateLimitHeaders(limit) }
       );
     }
-    return resultResponse(joinHousehold(user.id, body.code));
+    return resultResponse(await joinHousehold(user.id, body.code));
   }
 
   if (body.action === "rotate") {
     if (!user.householdId) {
       return NextResponse.json({ error: "Finish household setup first." }, { status: 409 });
     }
-    const limit = consumeRateLimit(
+    const limit = await consumeRateLimit(
       "household-invite-rotation-user",
       user.id,
       RATE_LIMITS.inviteRotationByUser
@@ -72,7 +76,7 @@ export async function POST(req: Request) {
         { status: 429, headers: rateLimitHeaders(limit) }
       );
     }
-    return resultResponse(rotateHouseholdInvite(user.householdId, user.id));
+    return resultResponse(await rotateHouseholdInvite(user.householdId, user.id));
   }
 
   return NextResponse.json({ error: "Unknown action." }, { status: 400 });

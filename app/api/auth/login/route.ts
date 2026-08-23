@@ -13,7 +13,11 @@ const DUMMY_PASSWORD_HASH = "$2b$10$GGfbQDY.BiporamOTfB9oOTGHOKiY7D4yYACf4O1ZMFa
 
 export async function POST(req: Request) {
   const address = clientAddress(req);
-  const addressLimit = consumeRateLimit("login-address", address, RATE_LIMITS.loginByAddress);
+  const addressLimit = await consumeRateLimit(
+    "login-address",
+    address,
+    RATE_LIMITS.loginByAddress
+  );
   if (!addressLimit.allowed) {
     return NextResponse.json(
       { error: "Too many sign-in attempts. Try again in a few minutes." },
@@ -33,7 +37,7 @@ export async function POST(req: Request) {
   }
 
   const accountKey = `${address}\0${email}`;
-  const accountLimit = consumeRateLimit(
+  const accountLimit = await consumeRateLimit(
     "login-account-address",
     accountKey,
     RATE_LIMITS.loginByAccountAndAddress
@@ -45,14 +49,17 @@ export async function POST(req: Request) {
     );
   }
 
-  const user = db()
-    .prepare("SELECT id, password_hash FROM users WHERE email = ?")
-    .get(email) as { id: string; password_hash: string } | undefined;
+  const user = (
+    await db().query<{ id: string; password_hash: string }>(
+      "SELECT id, password_hash FROM users WHERE email = $1",
+      [email]
+    )
+  ).rows[0];
   const passwordMatches = verifyPassword(password, user?.password_hash ?? DUMMY_PASSWORD_HASH);
   if (!user || !passwordMatches) {
     return NextResponse.json({ error: "Wrong email or password." }, { status: 401 });
   }
-  clearRateLimit("login-account-address", accountKey);
+  await clearRateLimit("login-account-address", accountKey);
   await createSession(user.id);
   return NextResponse.json({ ok: true });
 }
