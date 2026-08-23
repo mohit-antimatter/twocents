@@ -77,6 +77,7 @@ export type Category = {
   emoji: string;
   color: string;
   sort: number;
+  budget_minor: number | null;
 };
 
 export function listCategories(householdId: string): Category[] {

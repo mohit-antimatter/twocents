@@ -13,6 +13,7 @@ import { formatMinor } from "@/lib/money";
 import { personColorMap } from "@/lib/colors";
 import { localToday } from "@/lib/parse";
 import { materializeDueRecurring } from "@/lib/recurring";
+import { getCategoryBudgetPaces } from "@/lib/budgets";
 import { listCategories } from "@/lib/categories";
 import QuickAdd from "@/components/QuickAdd";
 import PresetChips from "@/components/PresetChips";
@@ -20,6 +21,7 @@ import ExpenseList from "@/components/ExpenseList";
 import AppNav from "@/components/AppNav";
 import InviteManager from "@/components/InviteManager";
 import SpendingPace from "@/components/SpendingPace";
+import CategoryBudgetPace from "@/components/CategoryBudgetPace";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Ledger | TwoCents" };
@@ -41,6 +43,7 @@ export default async function Home({
   const month = today.slice(0, 7);
   const summary = getMonthSummary(user.householdId, month);
   const pace = getSpendingPace(user.householdId, today);
+  const budgetPaces = getCategoryBudgetPaces(user.householdId, today);
   const presets = listPresets(user.householdId);
   const recent = listRecentExpenses(user.householdId, 40);
   const categories = listCategories(user.householdId).map((c) => ({
@@ -75,6 +78,8 @@ export default async function Home({
       </section>
 
       {pace && <SpendingPace pace={pace} currency={hh.home_currency} />}
+
+      <CategoryBudgetPace paces={budgetPaces} currency={hh.home_currency} compact />
 
       {members.length === 1 && recent.length === 0 && (
         <section className="mb-6" aria-label="Partner invitation">

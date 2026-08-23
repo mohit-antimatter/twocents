@@ -7,6 +7,7 @@ import { listCategories } from "@/lib/categories";
 import { personColorMap } from "@/lib/colors";
 import { localToday } from "@/lib/parse";
 import { listRecurringRules, materializeDueRecurring } from "@/lib/recurring";
+import BudgetManager from "@/components/BudgetManager";
 import InviteManager from "@/components/InviteManager";
 import PresetManager from "@/components/PresetManager";
 import RecurringManager from "@/components/RecurringManager";
@@ -120,6 +121,17 @@ export default async function SettingsPage() {
             today={today}
             currentUserId={user.id}
           />
+        </section>
+
+        {/* Category guides */}
+        <section id="category-guides">
+          <h2 className="mb-1 text-xs font-medium uppercase tracking-[0.14em] text-mute">
+            Monthly category guides
+          </h2>
+          <p className="mb-3 text-sm text-mute">
+            Set a comfortable monthly guide for everyday spending.
+          </p>
+          <BudgetManager categories={categories} homeCurrency={hh.home_currency} />
         </section>
 
         {/* Siri & Shortcuts */}

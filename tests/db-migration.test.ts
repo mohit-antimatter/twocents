@@ -17,6 +17,10 @@ test("upgrades an existing ledger before creating recurring indexes", () => {
       household_id TEXT NOT NULL,
       user_id TEXT NOT NULL
     );
+    CREATE TABLE categories (
+      id TEXT PRIMARY KEY,
+      household_id TEXT NOT NULL
+    );
   `);
 
   assert.doesNotThrow(() => migrate(database));
@@ -33,5 +37,10 @@ test("upgrades an existing ledger before creating recurring indexes", () => {
     .prepare("SELECT name FROM sqlite_master WHERE type = 'index'")
     .all() as { name: string }[];
   assert.ok(indexes.some((index) => index.name === "idx_expenses_recurring_due"));
+
+  const categoryColumns = database
+    .prepare("PRAGMA table_info(categories)")
+    .all() as { name: string }[];
+  assert.ok(categoryColumns.some((column) => column.name === "budget_minor"));
   database.close();
 });

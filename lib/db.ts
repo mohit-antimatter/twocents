@@ -42,7 +42,8 @@ CREATE TABLE IF NOT EXISTS categories (
   name TEXT NOT NULL,
   emoji TEXT NOT NULL DEFAULT '🧾',
   color TEXT NOT NULL DEFAULT '#6B7A70',
-  sort INTEGER NOT NULL DEFAULT 0
+  sort INTEGER NOT NULL DEFAULT 0,
+  budget_minor INTEGER
 );
 
 CREATE TABLE IF NOT EXISTS recurring_expenses (
@@ -137,6 +138,10 @@ export function migrate(d: Database.Database) {
   }
   if (!cols.some((c) => c.name === "recurring_rule_id")) {
     d.exec("ALTER TABLE expenses ADD COLUMN recurring_rule_id TEXT");
+  }
+  const categoryCols = d.prepare("PRAGMA table_info(categories)").all() as { name: string }[];
+  if (!categoryCols.some((column) => column.name === "budget_minor")) {
+    d.exec("ALTER TABLE categories ADD COLUMN budget_minor INTEGER");
   }
   d.exec(
     "CREATE UNIQUE INDEX IF NOT EXISTS idx_expenses_user_request ON expenses(user_id, request_id)"

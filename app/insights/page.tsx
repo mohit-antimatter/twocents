@@ -7,7 +7,9 @@ import { formatMinor } from "@/lib/money";
 import { personColorMap } from "@/lib/colors";
 import { localToday } from "@/lib/parse";
 import { materializeDueRecurring } from "@/lib/recurring";
+import { getCategoryBudgetPaces } from "@/lib/budgets";
 import AppNav from "@/components/AppNav";
+import CategoryBudgetPace from "@/components/CategoryBudgetPace";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Insights | TwoCents" };
@@ -37,6 +39,7 @@ export default async function InsightsPage({
   const members = getMembers(user.householdId);
   const personColors = personColorMap(members);
   const s = getMonthSummary(user.householdId, month);
+  const budgetPaces = month === currentMonth ? getCategoryBudgetPaces(user.householdId, today) : [];
 
   const monthLabel = new Date(month + "-01T12:00:00").toLocaleDateString("en-GB", {
     month: "long",
@@ -107,6 +110,8 @@ export default async function InsightsPage({
           </p>
         )}
       </section>
+
+      <CategoryBudgetPace paces={budgetPaces} currency={hh.home_currency} />
 
       {s.count === 0 ? (
         <div className="rounded-2xl border border-dashed border-hairline px-6 py-10 text-center text-dim">
