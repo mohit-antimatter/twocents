@@ -1,15 +1,33 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
+import GoogleSignInButton from "@/components/GoogleSignInButton";
 
 export default function LoginPage() {
+  return (
+    <Suspense fallback={<div className="min-h-dvh bg-bg" />}>
+      <LoginPageContent />
+    </Suspense>
+  );
+}
+
+function LoginPageContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+
+  const googleError = {
+    cancelled: "Google sign-in was cancelled.",
+    failed: "Google couldn't sign you in. Please try again.",
+    unavailable: "Google sign-in hasn't been configured yet.",
+    "signin-first": "Sign in with your password before connecting Google.",
+    "link-required": "This email already has a TwoCents account. Sign in with your password, then connect Google in Settings.",
+  }[searchParams.get("google") ?? ""];
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -37,7 +55,17 @@ export default function LoginPage() {
       </h1>
       <p className="mt-2 text-dim">The shared expense ledger for couples.</p>
 
-      <form onSubmit={submit} className="mt-8 space-y-4">
+      <div className="mt-8">
+        <GoogleSignInButton />
+      </div>
+
+      <div className="my-6 flex items-center gap-3 text-xs text-mute" aria-hidden="true">
+        <span className="h-px flex-1 bg-hairline" />
+        <span>or use email</span>
+        <span className="h-px flex-1 bg-hairline" />
+      </div>
+
+      <form onSubmit={submit} className="space-y-4">
         <label className="block">
           <span className="field-label">Email</span>
           <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" autoComplete="email" className="field-control" />
@@ -46,7 +74,9 @@ export default function LoginPage() {
           <span className="field-label">Password</span>
           <input type="password" required value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Your password" autoComplete="current-password" className="field-control" />
         </label>
-        {error && <p role="alert" className="text-sm text-danger">{error}</p>}
+        {(error || googleError) && (
+          <p role="alert" className="text-sm text-danger">{error || googleError}</p>
+        )}
         <button
           type="submit"
           disabled={busy}

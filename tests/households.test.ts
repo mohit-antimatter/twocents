@@ -4,6 +4,7 @@ import test from "node:test";
 import { closeDatabase, db } from "../lib/db";
 import {
   createHousehold,
+  isHouseholdOwner,
   joinHousehold,
   rotateHouseholdInvite,
 } from "../lib/households";
@@ -29,6 +30,8 @@ test("households remain two-person and invite codes are single-use", async () =>
     assert.equal(joined.ok, true);
     if (!joined.ok) return;
     assert.notEqual(joined.inviteCode, created.inviteCode);
+    assert.equal(await isHouseholdOwner(created.householdId, "owner"), true);
+    assert.equal(await isHouseholdOwner(created.householdId, "partner"), false);
 
     const staleCode = await joinHousehold("third", created.inviteCode);
     assert.deepEqual(staleCode, { ok: false, error: "not_found" });

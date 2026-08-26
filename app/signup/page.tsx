@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import GoogleSignInButton from "@/components/GoogleSignInButton";
 
 export default function SignupPage() {
   const router = useRouter();
@@ -38,7 +39,17 @@ export default function SignupPage() {
       </h1>
       <p className="mt-2 text-dim">Three seconds to log. Zero bank permissions.</p>
 
-      <form onSubmit={submit} className="mt-8 space-y-4">
+      <div className="mt-8">
+        <GoogleSignInButton />
+      </div>
+
+      <div className="my-6 flex items-center gap-3 text-xs text-mute" aria-hidden="true">
+        <span className="h-px flex-1 bg-hairline" />
+        <span>or use email</span>
+        <span className="h-px flex-1 bg-hairline" />
+      </div>
+
+      <form onSubmit={submit} className="space-y-4">
         <label className="block">
           <span className="field-label">First name</span>
           <input required value={name} onChange={(e) => setName(e.target.value)} placeholder="Your first name" autoComplete="given-name" className="field-control" />

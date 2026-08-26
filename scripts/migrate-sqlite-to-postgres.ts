@@ -15,6 +15,10 @@ import {
 const TABLES = [
   { name: "users", columns: ["id", "email", "name", "password_hash", "created_at"] },
   {
+    name: "auth_identities",
+    columns: ["provider", "provider_user_id", "user_id", "created_at"],
+  },
+  {
     name: "households",
     columns: ["id", "name", "home_currency", "invite_code", "created_at"],
   },
