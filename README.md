@@ -21,6 +21,29 @@ npm run dev
 
 Add your PostgreSQL connection strings and a random `RATE_LIMIT_SECRET` to `.env.local` before starting. Use a pooled connection for `DATABASE_URL`; if your provider gives you a direct connection too, put it in `DIRECT_DATABASE_URL` for one-off imports. Then open http://localhost:3000, create an account, create a household, and share the invite code (Settings) with your partner.
 
+### Continue with Google
+
+Create a Google Cloud OAuth client with the **Web application** type, then add these values to `.env.local`:
+
+```bash
+GOOGLE_CLIENT_ID=your-client-id.apps.googleusercontent.com
+GOOGLE_CLIENT_SECRET=your-client-secret
+APP_URL=http://localhost:3000
+```
+
+Register `http://localhost:3000/api/auth/google/callback` as an authorized redirect URI. For production, replace the origin with the deployed HTTPS domain in both Google Cloud and `APP_URL`. TwoCents requests only basic identity scopes: name, email, and Google account ID. Existing password users connect Google explicitly from Settings after signing in; this prevents an unverified email address from being linked automatically.
+
+### Household data backup and restore
+
+Settings → **Your data** provides:
+
+- A restorable JSON backup containing expenses, recurring schedules, presets, category guides, categories, and payer mapping.
+- The existing spreadsheet-friendly expense CSV.
+- Owner-only JSON restore, which replaces the current shared financial data after an `IMPORT` confirmation.
+- Owner-only clear, which removes expenses, recurring schedules, presets, and category guides after a `CLEAR` confirmation.
+
+Accounts, household membership, passwords, sessions, invite codes, Google identities, and API-token secrets are never included in the backup or removed by the clear action. Restore requires the backup home currency and referenced member emails to match the current household.
+
 ### Moving the existing SQLite ledger
 
 The importer reads the old database without changing it and refuses to run if PostgreSQL already contains application data:

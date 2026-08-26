@@ -14,7 +14,7 @@ export interface AppDatabase extends Queryable {
   close(): Promise<void>;
 }
 
-const SCHEMA_VERSION = 1;
+const SCHEMA_VERSION = 2;
 const SCHEMA_VERSION_TABLE = `CREATE TABLE IF NOT EXISTS twocents_schema (
   name TEXT PRIMARY KEY,
   version INTEGER NOT NULL
@@ -27,6 +27,14 @@ const SCHEMA_STATEMENTS = [
     name TEXT NOT NULL,
     password_hash TEXT NOT NULL,
     created_at BIGINT NOT NULL
+  )`,
+  `CREATE TABLE IF NOT EXISTS auth_identities (
+    provider TEXT NOT NULL,
+    provider_user_id TEXT NOT NULL,
+    user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    created_at BIGINT NOT NULL,
+    PRIMARY KEY (provider, provider_user_id),
+    UNIQUE (provider, user_id)
   )`,
   `CREATE TABLE IF NOT EXISTS sessions (
     id TEXT PRIMARY KEY,

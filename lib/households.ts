@@ -121,6 +121,21 @@ export async function rotateHouseholdInvite(
   });
 }
 
+export async function isHouseholdOwner(
+  householdId: string,
+  userId: string,
+  database: Queryable = db()
+): Promise<boolean> {
+  const membership = (
+    await database.query<{ role: string }>(
+      `SELECT role FROM household_members
+       WHERE household_id = $1 AND user_id = $2`,
+      [householdId, userId]
+    )
+  ).rows[0];
+  return membership?.role === "owner";
+}
+
 async function membershipForUser(
   userId: string,
   database: Queryable

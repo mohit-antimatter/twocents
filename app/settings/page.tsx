@@ -14,18 +14,25 @@ import RecurringManager from "@/components/RecurringManager";
 import TokenManager from "@/components/TokenManager";
 import SignOutButton from "@/components/SignOutButton";
 import AppNav from "@/components/AppNav";
+import { hasGoogleIdentity } from "@/lib/google-auth";
+import DataManager from "@/components/DataManager";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Settings | TwoCents" };
 
-export default async function SettingsPage() {
+export default async function SettingsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ google?: string }>;
+}) {
   const user = await getSessionUser();
   if (!user) redirect("/login");
   if (!user.householdId) redirect("/onboarding");
 
   const today = localToday();
   await materializeDueRecurring(user.householdId, today);
-  const [hh, members, presets, categories, recurring, membershipResult, tokenResult] =
+  const query = await searchParams;
+  const [hh, members, presets, categories, recurring, membershipResult, tokenResult, googleConnected] =
     await Promise.all([
       getHousehold(user.householdId),
       getMembers(user.householdId),
@@ -47,6 +54,7 @@ export default async function SettingsPage() {
          FROM api_tokens WHERE user_id = $1 ORDER BY created_at DESC`,
         [user.id]
       ),
+      hasGoogleIdentity(user.id),
     ]);
   const personColors = personColorMap(members);
   const membership = membershipResult.rows[0];
@@ -174,33 +182,15 @@ export default async function SettingsPage() {
           </div>
         </section>
 
-        {/* Data export */}
+        {/* Data management */}
         <section>
           <h2 className="mb-1 text-xs font-medium uppercase tracking-[0.14em] text-mute">
             Your data
           </h2>
           <p className="mb-3 text-sm text-mute">
-            Take the complete household ledger with you at any time.
+            Keep a restorable copy, move data back in, or start the shared ledger fresh.
           </p>
-          <div className="rounded-2xl border border-hairline bg-surface p-4">
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <p className="text-sm font-medium text-ink">All expenses · CSV</p>
-                <p className="mt-1 text-xs leading-relaxed text-mute">
-                  Includes original amounts, home-currency values, categories, notes, and who paid.
-                </p>
-              </div>
-              <a
-                href="/api/export"
-                className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-xl border border-mint/30 px-4 text-sm font-medium text-mint transition-colors hover:bg-mint/10"
-              >
-                <svg aria-hidden="true" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M12 3v12m0 0 4-4m-4 4-4-4M5 21h14" />
-                </svg>
-                Download CSV
-              </a>
-            </div>
-          </div>
+          <DataManager canManage={membership?.role === "owner"} />
         </section>
 
         {/* Account */}
@@ -212,6 +202,32 @@ export default async function SettingsPage() {
             <div>
               <p className="text-ink">{user.name}</p>
               <p className="text-sm text-mute">{user.email}</p>
+            </div>
+            <div className="border-t border-hairline pt-4">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="text-sm font-medium text-ink">Google sign-in</p>
+                  <p className="mt-1 text-xs text-mute">
+                    {googleConnected ? "Connected" : "Use this Google account for quicker sign-in."}
+                  </p>
+                </div>
+                {!googleConnected && (
+                  <a
+                    href="/api/auth/google/start?mode=link"
+                    className="inline-flex min-h-11 shrink-0 items-center justify-center rounded-xl border border-mint/30 px-4 text-sm font-medium text-mint transition-colors hover:bg-mint/10"
+                  >
+                    Connect Google
+                  </a>
+                )}
+              </div>
+              {query.google === "connected" && (
+                <p role="status" className="mt-3 text-sm text-mint">Google sign-in is ready.</p>
+              )}
+              {query.google === "failed" && (
+                <p role="alert" className="mt-3 text-sm text-danger">
+                  Google couldn&apos;t be connected. Choose the account using {user.email} and try again.
+                </p>
+              )}
             </div>
             <SignOutButton />
           </div>
