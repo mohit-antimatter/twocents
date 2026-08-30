@@ -238,7 +238,7 @@ export default function RecurringManager({
             </select>
           </label>
           <p className="text-xs leading-relaxed text-mute sm:col-span-2">
-            Due expenses are logged when either of you next opens TwoCents. Editing a logged expense won&apos;t change this schedule.
+            Due expenses are logged when either of you next opens OurPool. Editing a logged expense won&apos;t change this schedule.
           </p>
           <button type="submit" disabled={busy === "new"} className="primary-button sm:col-span-2">
             {busy === "new" ? "Saving…" : "Save schedule"}

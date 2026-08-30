@@ -56,5 +56,31 @@ test("the service worker never intercepts authenticated pages", () => {
 
   assert.equal(isIntercepted("https://twocents.test/_next/static/chunk.js"), true);
   assert.equal(isIntercepted("https://twocents.test/icon-192.png"), true);
+  assert.equal(isIntercepted("https://twocents.test/icon-192.png?v=ourpool-1"), true);
+  assert.equal(isIntercepted("https://twocents.test/ourpool-mark.svg"), true);
   assert.equal(isIntercepted("https://twocents.test/manifest.webmanifest"), true);
+});
+
+test("activation removes old branded caches and takes control of existing tabs", async () => {
+  let activate: ((event: { waitUntil: (work: Promise<unknown>) => void }) => void) | undefined;
+  const deleted: string[] = [];
+  let claimed = false;
+  vm.runInNewContext(fs.readFileSync(path.join(process.cwd(), "public/sw.js"), "utf8"), {
+    caches: {
+      keys: async () => ["twocents-static-v2", "ourpool-static-v3"],
+      delete: async (key: string) => { deleted.push(key); return true; },
+    },
+    self: {
+      clients: { claim: async () => { claimed = true; } },
+      addEventListener: (type: string, handler: typeof activate) => {
+        if (type === "activate") activate = handler;
+      },
+    },
+  });
+  assert.ok(activate);
+  let pending: Promise<unknown> | undefined;
+  activate({ waitUntil: (work) => { pending = work; } });
+  await pending;
+  assert.deepEqual(deleted, ["twocents-static-v2"]);
+  assert.equal(claimed, true);
 });

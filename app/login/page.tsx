@@ -4,6 +4,7 @@ import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import GoogleSignInButton from "@/components/GoogleSignInButton";
+import BrandLogo from "@/components/BrandLogo";
 
 export default function LoginPage() {
   return (
@@ -26,7 +27,7 @@ function LoginPageContent() {
     failed: "Google couldn't sign you in. Please try again.",
     unavailable: "Google sign-in hasn't been configured yet.",
     "signin-first": "Sign in with your password before connecting Google.",
-    "link-required": "This email already has a TwoCents account. Sign in with your password, then connect Google in Settings.",
+    "link-required": "This email already has an OurPool account. Sign in with your password, then connect Google in Settings.",
   }[searchParams.get("google") ?? ""];
 
   async function submit(e: React.FormEvent) {
@@ -50,10 +51,8 @@ function LoginPageContent() {
 
   return (
     <main className="mx-auto flex min-h-dvh max-w-lg flex-col justify-center px-5 py-12 sm:px-8">
-      <h1 className="font-display text-3xl font-semibold tracking-tight text-ink">
-        two<span className="text-mint">¢</span>ents
-      </h1>
-      <p className="mt-2 text-dim">The shared expense ledger for couples.</p>
+      <h1><BrandLogo size="lg" /></h1>
+      <p className="mt-3 text-dim">Household expenses, tracked together.</p>
 
       <div className="mt-8">
         <GoogleSignInButton />

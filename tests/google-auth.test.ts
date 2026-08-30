@@ -172,7 +172,7 @@ test("requires an existing password user to connect Google explicitly", async ()
     };
     await assert.rejects(
       () => findOrCreateGoogleUser(profile, database),
-      /already has a TwoCents account/i
+      /already has an OurPool account/i
     );
     await linkGoogleIdentity("existing-user", "partner@example.com", profile, database);
     assert.deepEqual(await findOrCreateGoogleUser(profile, database), {
@@ -206,7 +206,7 @@ test("refuses to connect a different Google email to a password account", async 
           { subject: "google-user-2", email: "someone-else@example.com", name: "Else" },
           database
         ),
-      /uses your TwoCents email/i
+      /uses your OurPool email/i
     );
   } finally {
     await database.close();

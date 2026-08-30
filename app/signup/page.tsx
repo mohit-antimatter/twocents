@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import GoogleSignInButton from "@/components/GoogleSignInButton";
+import BrandLogo from "@/components/BrandLogo";
 
 export default function SignupPage() {
   const router = useRouter();
@@ -34,10 +35,8 @@ export default function SignupPage() {
 
   return (
     <main className="mx-auto flex min-h-dvh max-w-lg flex-col justify-center px-5 py-12 sm:px-8">
-      <h1 className="font-display text-3xl font-semibold tracking-tight text-ink">
-        two<span className="text-mint">¢</span>ents
-      </h1>
-      <p className="mt-2 text-dim">Three seconds to log. Zero bank permissions.</p>
+      <h1><BrandLogo size="lg" /></h1>
+      <p className="mt-3 text-dim">Household expenses, tracked together.</p>
 
       <div className="mt-8">
         <GoogleSignInButton />

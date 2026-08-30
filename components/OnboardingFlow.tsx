@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import CopyButton from "@/components/CopyButton";
+import BrandLogo from "@/components/BrandLogo";
 
 const CURRENCIES = ["INR", "USD", "EUR", "GBP", "AED", "SGD", "AUD", "CAD"];
 
@@ -52,6 +53,7 @@ export default function OnboardingFlow() {
   if (inviteCode) {
     return (
       <main className="mx-auto flex min-h-dvh max-w-lg flex-col justify-center px-5 py-12 sm:px-8">
+        <div className="mb-6"><BrandLogo /></div>
         <div className="rise-in rounded-3xl border border-mint/25 bg-surface p-6 shadow-2xl shadow-black/20 sm:p-8">
           <div className="grid h-12 w-12 place-items-center rounded-2xl bg-mint/10 text-2xl text-mint" aria-hidden>✓</div>
           <p className="mt-5 text-xs font-medium uppercase tracking-[0.16em] text-mint">Household ready</p>
@@ -63,7 +65,7 @@ export default function OnboardingFlow() {
             <div className="mt-4 flex justify-center"><CopyButton value={inviteCode} label="Copy invite code" /></div>
           </div>
           <ol className="mt-6 space-y-3 text-sm text-dim">
-            <li className="flex gap-3"><span className="text-mint">1</span> Your partner creates their own TwoCents account.</li>
+            <li className="flex gap-3"><span className="text-mint">1</span> Your partner creates their own OurPool account.</li>
             <li className="flex gap-3"><span className="text-mint">2</span> They choose “Join with a code.”</li>
             <li className="flex gap-3"><span className="text-mint">3</span> They enter this code once.</li>
           </ol>
@@ -76,7 +78,8 @@ export default function OnboardingFlow() {
 
   return (
     <main className="mx-auto flex min-h-dvh max-w-lg flex-col justify-center px-5 py-12 sm:px-8">
-      <p className="text-xs font-medium uppercase tracking-[0.16em] text-mint">Set up TwoCents</p>
+      <div className="mb-6"><BrandLogo /></div>
+      <p className="text-xs font-medium uppercase tracking-[0.16em] text-mint">Set up your household</p>
       <h1 className="mt-2 font-display text-3xl font-semibold tracking-tight text-ink">One ledger, two people</h1>
       <p className="mt-2 max-w-md text-dim">Start a household and invite your partner, or use the code they sent you.</p>
       <div className="mt-8 grid grid-cols-2 rounded-2xl border border-hairline bg-surface p-1" role="tablist" aria-label="Household setup">

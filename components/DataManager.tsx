@@ -27,7 +27,7 @@ export default function DataManager({ canManage }: { canManage: boolean }) {
     event.preventDefault();
     setMessage(null);
     if (!file) {
-      setMessage({ kind: "error", text: "Choose a TwoCents backup first." });
+      setMessage({ kind: "error", text: "Choose an OurPool backup first." });
       return;
     }
     if (file.size > 10 * 1024 * 1024) {
@@ -131,7 +131,7 @@ export default function DataManager({ canManage }: { canManage: boolean }) {
         {canManage ? (
           <form onSubmit={importBackup} className="mt-3 space-y-3">
             <label className="block">
-              <span className="sr-only">TwoCents JSON backup</span>
+              <span className="sr-only">OurPool JSON backup</span>
               <input
                 ref={fileInput}
                 type="file"

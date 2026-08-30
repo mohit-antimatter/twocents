@@ -35,7 +35,7 @@ function GuideRow({ category, currency }: { category: CategoryProp; currency: st
         router.refresh();
       }
     } catch {
-      setError("Couldn't reach TwoCents. Try again.");
+      setError("Couldn't reach OurPool. Try again.");
     } finally {
       setBusy(false);
     }
@@ -55,7 +55,7 @@ function GuideRow({ category, currency }: { category: CategoryProp; currency: st
         router.refresh();
       }
     } catch {
-      setError("Couldn't reach TwoCents. Try again.");
+      setError("Couldn't reach OurPool. Try again.");
     } finally {
       setBusy(false);
     }
@@ -158,7 +158,7 @@ export default function BudgetManager({
         router.refresh();
       }
     } catch {
-      setError("Couldn't reach TwoCents. Try again.");
+      setError("Couldn't reach OurPool. Try again.");
     } finally {
       setBusy(false);
     }

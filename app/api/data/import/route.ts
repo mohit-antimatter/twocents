@@ -23,7 +23,7 @@ export async function POST(request: Request) {
     return json({ error: "Type IMPORT to confirm." }, 400);
   }
   if (request.headers.get("content-type")?.split(";")[0] !== "application/json") {
-    return json({ error: "Choose a TwoCents JSON backup." }, 415);
+    return json({ error: "Choose an OurPool JSON backup." }, 415);
   }
   const declaredSize = Number(request.headers.get("content-length") ?? 0);
   if (declaredSize > MAX_BACKUP_BYTES) {

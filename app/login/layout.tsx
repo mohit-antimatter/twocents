@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 
-export const metadata: Metadata = { title: "Sign in | TwoCents" };
+export const metadata: Metadata = { title: "Sign in | OurPool" };
 
 export default function LoginLayout({ children }: { children: React.ReactNode }) {
   return children;

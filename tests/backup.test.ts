@@ -194,6 +194,6 @@ test("validates the backup envelope and builds a portable filename", () => {
   assert.throws(() => validateHouseholdBackup({ version: 1 }), /not a supported/i);
   assert.equal(
     backupFilename("M & A / Home", "2026-08-26"),
-    "twocents-m-a-home-2026-08-26.backup.json"
+    "ourpool-m-a-home-2026-08-26.backup.json"
   );
 });

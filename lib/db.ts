@@ -229,7 +229,7 @@ export function db(): AppDatabase {
   const connectionString = process.env.DATABASE_URL;
   if (!connectionString) {
     throw new Error(
-      "DATABASE_URL is required. Point it at PostgreSQL before starting TwoCents."
+      "DATABASE_URL is required. Point it at PostgreSQL before starting OurPool."
     );
   }
   global.__twocents_db = new PostgresDatabase(connectionString);

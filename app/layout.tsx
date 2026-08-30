@@ -18,15 +18,17 @@ const money = Spline_Sans_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "TwoCents",
-  description: "The shared expense ledger for couples. Log it in three seconds, see where the month went — together.",
+  title: "OurPool",
+  applicationName: "OurPool",
+  description: "Household expenses, tracked together. Log everyday spending, plan your monthly budget, and see where your money goes.",
   appleWebApp: {
     capable: true,
-    title: "TwoCents",
+    title: "OurPool",
     statusBarStyle: "black-translucent",
   },
   icons: {
-    apple: "/apple-touch-icon.png",
+    icon: { url: "/ourpool-mark.svg", type: "image/svg+xml" },
+    apple: "/apple-touch-icon.png?v=ourpool-1",
   },
 };
 

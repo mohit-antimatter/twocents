@@ -16,9 +16,10 @@ import SignOutButton from "@/components/SignOutButton";
 import AppNav from "@/components/AppNav";
 import { hasGoogleIdentity } from "@/lib/google-auth";
 import DataManager from "@/components/DataManager";
+import BrandLogo from "@/components/BrandLogo";
 
 export const dynamic = "force-dynamic";
-export const metadata: Metadata = { title: "Settings | TwoCents" };
+export const metadata: Metadata = { title: "Settings | OurPool" };
 
 export default async function SettingsPage({
   searchParams,
@@ -63,7 +64,7 @@ export default async function SettingsPage({
   return (
     <main className="app-page">
       <header className="mb-8">
-        <p className="text-xs font-medium uppercase tracking-[0.16em] text-mint">TwoCents</p>
+        <BrandLogo size="sm" />
         <h1 className="mt-1 font-display text-2xl font-semibold tracking-tight text-ink">Settings</h1>
       </header>
 
