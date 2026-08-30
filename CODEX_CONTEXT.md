@@ -1,10 +1,20 @@
-# TwoCents — Handoff Context
+# OurPool — Handoff Context
 
-Updated 2026-08-23 (Codex takeover in progress). Read this before touching code.
+Updated 2026-08-30. Read this before touching code; older dated entries below are historical.
+
+## Latest owner decisions and deployment
+
+- The product is now **OurPool**, with calm, trustworthy household-expense positioning. The public URL is `https://ourpool.vercel.app`. The owner confirmed deployment and Google sign-in work on 2026-08-30.
+- Branding code now uses the shared `components/BrandLogo.tsx` and `public/ourpool-mark.svg`; `npm run icons:generate` regenerates the favicon and PWA/Apple icons. No database, OAuth, cookie, or token identifiers were renamed. Keep the legacy backup format for compatibility. Release `0.1.1` is prepared on `codex/ourpool-branding`; committing and merging it is the current release step, not yet complete.
+- The canonical GitHub repository is [mohit-antimatter/ourpool](https://github.com/mohit-antimatter/ourpool), with default branch `main`; earlier PR #1 is already merged. The local origin URL still uses `https://github.com/mohit-antimatter/twocents.git` and redirects to the renamed repository. The local folder remains `Twocents`; do not rename infrastructure as part of this visual rebrand.
+- The owner does **not** need the old test data imported. Preserve any local database files, but do not run a migration automatically.
+- The owner authorized committing and merging this branding release on 2026-08-30. Give the owner manual dashboard/browser steps when needed; do not take over their browser.
+- Local checks: `npm run lint`, `npx tsc --noEmit`, and `npm run build` pass; all 61 tests pass with the bundled Node 24 runtime. The default shell uses Node 20, while the installed `better-sqlite3` binary currently targets Node 24, so the legacy importer test needs a matching runtime.
+- Historical deployment and Google setup TODOs below are superseded by this section. Hosting, Neon storage, and Google sign-in are already configured.
 
 ## What this is
 
-TwoCents is a **shared household expense ledger for couples** — a product from day one, not a personal tool. Core promise: log an expense in ~3 seconds, both partners see one ledger, analysis covers "us." Differentiators: **no bank linking, no AI/API keys, no data leaving the server**. Repo: `github.com/mohitkhandelwal8-cy/twocents` (private). Working dir is the repo root.
+OurPool is a **shared household expense ledger for couples** — a product from day one, not a personal tool. Core promise: log an expense in ~3 seconds, both partners see one ledger, analysis covers "us." Differentiators: **no bank linking and no third-party AI parsing**. Hosted data lives in PostgreSQL; Google provides optional authentication. Working dir is the repo root.
 
 ## Locked product decisions (do not relitigate without the owner)
 
@@ -74,18 +84,18 @@ Money rule: integers in minor units; `home_minor = round(amount_minor * fx_to_ho
 - **NEVER run `npm run build` while the dev server is running.** Both write `.next/`; the build corrupts the live server (this happened; symptom: every route 500s with `Cannot find module './NNN.js'`). Recovery: stop server, `rm -rf .next`, restart.
 - **Schema changes need a server restart**: the PostgreSQL pool and one-time schema initialization are cached in `global`.
 - Tests use PGlite through `tests/db-helpers.ts`; this catches PostgreSQL syntax/transaction behavior but does not replace one live `pg` connection test before deployment.
-- Import the existing ledger with `npm run db:import-sqlite -- data/twocents.db`. The source is opened read-only and the import aborts if target application tables are non-empty. Keep the SQLite file as a backup until production verification is complete.
+- Only if the owner later requests a legacy import, use `npm run db:import-sqlite -- data/twocents.db`. The source is opened read-only and the import aborts if target application tables are non-empty. Preserve the SQLite file; the current release needs no import.
 - Tailwind: don't stack `w-full` (in a shared class string) with `w-32`-style overrides — stylesheet order wins, not class order. Pattern in EditSheet: base class has no width; add `w-full` / `flex-1 min-w-0` / `w-32 shrink-0` per use.
 - Settings becomes a two-column grid at desktop widths, so each child section is still only about 400px wide. Keep row controls stacked or intrinsically narrow; do not assume a desktop viewport means a full-width child card.
 - tsconfig target is ES2017 (spread-of-Map-iterators needs it).
-- Phone testing: same Wi-Fi → `http://<mac-ip>:3000` (`ipconfig getifaddr en0`). Mic/PWA-install polish need HTTPS (deferred to deployment).
+- Phone testing: same Wi-Fi → `http://<mac-ip>:3000` (`ipconfig getifaddr en0`). Mic/PWA-install checks need HTTPS; use the deployed site for those checks.
 - Local QA accounts and invite codes live only in the gitignored database. Do not put reusable credentials or live invite codes in committed documentation; create a throwaway account through `/signup` when a clean onboarding state is needed.
 
 ## Roadmap (research-ranked; see docs/market-research.md)
 
 Completed: CSV export; restorable JSON backup/import and guarded shared-data clear; glanceable spend-so-far vs typical-by-this-date pace; recurring expenses; gentle per-category guides; Household Help categorization; Insights category/title drill-downs.
 
-1. Deployment: GitHub and the PostgreSQL code migration are done. Next: provision hosted PostgreSQL, import and verify the existing ledger, create the Google Cloud OAuth web client/redirect URI, then configure/deploy Vercel — owner is deployment-beginner, explain steps plainly.
+1. Complete the authorized OurPool branding release through GitHub, then verify Vercel serves the update. Hosting, Neon storage, and Google sign-in are already configured; no new project, database migration, or OAuth-client recreation is needed for this change.
 
 Deferred by the owner: private expenses are not needed for now. Formal subcategories are also unnecessary unless later evidence supports them; the expandable title grouping covers the current need without adding capture friction.
 

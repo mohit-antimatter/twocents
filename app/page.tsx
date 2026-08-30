@@ -22,9 +22,10 @@ import AppNav from "@/components/AppNav";
 import InviteManager from "@/components/InviteManager";
 import SpendingPace from "@/components/SpendingPace";
 import CategoryBudgetPace from "@/components/CategoryBudgetPace";
+import BrandLogo from "@/components/BrandLogo";
 
 export const dynamic = "force-dynamic";
-export const metadata: Metadata = { title: "Ledger | TwoCents" };
+export const metadata: Metadata = { title: "Ledger | OurPool" };
 
 export default async function Home({
   searchParams,
@@ -63,9 +64,7 @@ export default async function Home({
   return (
     <main className="app-page max-w-2xl">
       <header className="mb-6">
-        <h1 className="font-display text-xl font-semibold tracking-tight text-ink">
-          two<span className="text-mint">¢</span>ents
-        </h1>
+        <h1><BrandLogo /></h1>
       </header>
 
       <section className="mb-6">

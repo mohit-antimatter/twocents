@@ -10,9 +10,10 @@ import { materializeDueRecurring } from "@/lib/recurring";
 import { getCategoryBudgetPaces } from "@/lib/budgets";
 import AppNav from "@/components/AppNav";
 import CategoryBudgetPace from "@/components/CategoryBudgetPace";
+import BrandLogo from "@/components/BrandLogo";
 
 export const dynamic = "force-dynamic";
-export const metadata: Metadata = { title: "Insights | TwoCents" };
+export const metadata: Metadata = { title: "Insights | OurPool" };
 
 // Chart chrome (dark), from the validated reference instance.
 const GRID = "#2c2c2a";
@@ -74,7 +75,7 @@ export default async function InsightsPage({
     <main className="app-page">
       <header className="mb-6 flex items-center justify-between">
         <div>
-          <p className="text-xs font-medium uppercase tracking-[0.16em] text-mint">TwoCents</p>
+          <BrandLogo size="sm" />
           <h1 className="mt-1 font-display text-2xl font-semibold tracking-tight text-ink">Insights</h1>
         </div>
         <div className="flex items-center gap-1">

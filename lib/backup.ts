@@ -2,6 +2,7 @@ import { db, uid, type AppDatabase, type Queryable } from "./db";
 import { CURRENCIES } from "./money";
 import { isValidISODate, isValidTime } from "./validation";
 
+// Persisted identifier: backups made before the OurPool rebrand remain compatible.
 const BACKUP_FORMAT = "twocents-household-backup";
 const BACKUP_VERSION = 1;
 
@@ -151,7 +152,7 @@ export function backupFilename(householdName: string, today: string): string {
     .replace(/^-+|-+$/g, "")
     .toLowerCase()
     .slice(0, 48) || "household";
-  return `twocents-${slug}-${today}.backup.json`;
+  return `ourpool-${slug}-${today}.backup.json`;
 }
 
 function record(value: unknown, label: string): Record<string, unknown> {
@@ -219,7 +220,7 @@ function time(value: unknown, label: string): string | null {
 export function validateHouseholdBackup(value: unknown): HouseholdBackup {
   const root = record(value, "Backup");
   if (root.format !== BACKUP_FORMAT || root.version !== BACKUP_VERSION) {
-    throw new BackupValidationError("This is not a supported TwoCents backup.");
+    throw new BackupValidationError("This is not a supported OurPool backup.");
   }
   const householdInput = record(root.household, "Household");
   const homeCurrency = currency(householdInput.home_currency, "Household currency");

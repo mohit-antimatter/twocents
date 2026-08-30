@@ -1,15 +1,17 @@
-# TwoCents
+# OurPool
 
-The shared expense ledger for couples. Log an expense in three seconds, see where the month went — together. No bank permissions, no API keys, no data leaving your server.
+Household expenses, tracked together. Log everyday spending, plan your monthly budget, and see where your money goes. No bank connection required.
+
+[Open OurPool](https://ourpool.vercel.app) · [GitHub repository](https://github.com/mohit-antimatter/ourpool) · [Contributor context](CODEX_CONTEXT.md)
 
 ## Why it exists
 
-Expense trackers die from entry friction. TwoCents attacks that directly:
+Expense trackers die from entry friction. OurPool attacks that directly:
 
 - **One parsing brain, many mouths.** Type `swiggy 450`, say it to Siri, or tap a preset — every surface funnels into the same local `text → structured expense` parser. It handles merchant keywords, dates ("yesterday", "last friday"), shorthand ("2k", "1.5 lakh"), currency symbols, and spelled-out numbers from voice dictation ("three hundred on chai").
 - **Shared by design.** Expenses live in a *household*, not an account. Either partner logs, both see everything, and analysis covers "us" — sliceable by person.
 - **Multi-currency.** Each expense keeps its own currency; the FX rate is snapshotted at capture so history never drifts. Totals roll up into the household home currency.
-- **Fully self-contained.** Parsing is deterministic local code. Nothing is sent to any third-party service.
+- **Local parsing.** Expense parsing is deterministic code, with no third-party AI service. Hosted data is stored in PostgreSQL; optional Google sign-in uses Google for authentication.
 
 ## Running it
 
@@ -31,7 +33,13 @@ GOOGLE_CLIENT_SECRET=your-client-secret
 APP_URL=http://localhost:3000
 ```
 
-Register `http://localhost:3000/api/auth/google/callback` as an authorized redirect URI. For production, replace the origin with the deployed HTTPS domain in both Google Cloud and `APP_URL`. TwoCents requests only basic identity scopes: name, email, and Google account ID. Existing password users connect Google explicitly from Settings after signing in; this prevents an unverified email address from being linked automatically.
+Register `http://localhost:3000/api/auth/google/callback` as an authorized redirect URI. For production, replace the origin with the deployed HTTPS domain in both Google Cloud and `APP_URL`. OurPool requests only basic identity scopes: name, email, and Google account ID. Existing password users connect Google explicitly from Settings after signing in; this prevents an unverified email address from being linked automatically.
+
+### Brand assets
+
+The OurPool mark combines an O and P in the app's existing mint and ivory palette. `components/BrandLogo.tsx` pairs `public/ourpool-mark.svg` with the wordmark; the SVG also supplies the browser favicon and installed-app icons. After editing the SVG, run `npm run icons:generate` and commit the generated files too. Bump the icon query version in the metadata/manifest and the public service-worker cache version when shipping new icons.
+
+The rebrand does not change database tables, session cookies, Google callbacks, Shortcuts tokens, or the `twocents-household-backup` format identifier. Older backups remain compatible; new downloaded filenames begin with `ourpool-`. An existing iPhone home-screen shortcut may need to be removed and re-added to refresh its saved name and icon; this does not delete server-side household data.
 
 ### Household data backup and restore
 
@@ -46,7 +54,7 @@ Accounts, household membership, passwords, sessions, invite codes, Google identi
 
 ### Moving the existing SQLite ledger
 
-The importer reads the old database without changing it and refuses to run if PostgreSQL already contains application data:
+This is optional migration tooling, not a deployment or rebrand requirement. The current deployment does not need the old test data imported. If an import is explicitly needed, the importer reads the old database without changing it and refuses to run if PostgreSQL already contains application data:
 
 ```bash
 npm run db:import-sqlite -- data/twocents.db
@@ -70,6 +78,5 @@ Settings → *Siri & iPhone Shortcuts* → generate a token, then follow the 5-s
 ## Roadmap (phase 2)
 
 - Native iOS app with App Intents (deepest Siri/widget integration) on the same API
-- Budgets per category with alerts
+- Category-guide alerts (shared monthly guides are already available)
 - Live FX rates
-- Hosted deployment for real users

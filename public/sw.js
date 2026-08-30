@@ -1,7 +1,9 @@
 // Cache public, immutable assets only. Authenticated pages and RSC responses
 // contain household data and must never be persisted in Cache Storage.
-const CACHE = "twocents-static-v2";
+// New namespace retires cached TwoCents icons and the old install manifest.
+const CACHE = "ourpool-static-v3";
 const PUBLIC_ASSETS = new Set([
+  "/ourpool-mark.svg",
   "/apple-touch-icon.png",
   "/icon-192.png",
   "/icon-512.png",

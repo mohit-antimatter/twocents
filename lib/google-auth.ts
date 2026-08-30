@@ -28,7 +28,7 @@ export class GoogleAuthError extends Error {
 
 export class GoogleLinkRequiredError extends GoogleAuthError {
   constructor() {
-    super("This email already has a TwoCents account.");
+    super("This email already has an OurPool account.");
     this.name = "GoogleLinkRequiredError";
   }
 }
@@ -272,7 +272,7 @@ export async function linkGoogleIdentity(
   database: AppDatabase = db()
 ): Promise<void> {
   if (profile.email !== userEmail.trim().toLowerCase()) {
-    throw new GoogleAuthError("Choose the Google account that uses your TwoCents email.");
+    throw new GoogleAuthError("Choose the Google account that uses your OurPool email.");
   }
   await database.transaction(async (client) => {
     const subjectOwner = (

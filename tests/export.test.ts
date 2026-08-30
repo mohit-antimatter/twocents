@@ -49,8 +49,8 @@ test("returns a header-only UTF-8 CSV for an empty ledger", () => {
 });
 
 test("builds a bounded portable filename", () => {
-  assert.equal(exportFilename("M & A / Home", "2026-08-23"), "twocents-m-a-home-2026-08-23.csv");
-  assert.equal(exportFilename("✨", "2026-08-23"), "twocents-household-2026-08-23.csv");
+  assert.equal(exportFilename("M & A / Home", "2026-08-23"), "ourpool-m-a-home-2026-08-23.csv");
+  assert.equal(exportFilename("✨", "2026-08-23"), "ourpool-household-2026-08-23.csv");
 });
 
 test("export queries never cross the household boundary", async () => {

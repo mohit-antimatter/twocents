@@ -60,5 +60,5 @@ export function exportFilename(householdName: string, today: string): string {
     .replace(/^-+|-+$/g, "")
     .toLowerCase()
     .slice(0, 48) || "household";
-  return `twocents-${slug}-${today}.csv`;
+  return `ourpool-${slug}-${today}.csv`;
 }

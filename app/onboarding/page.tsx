@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import OnboardingFlow from "@/components/OnboardingFlow";
 import { getSessionUser } from "@/lib/auth";
 
-export const metadata: Metadata = { title: "Set up your household | TwoCents" };
+export const metadata: Metadata = { title: "Set up your household | OurPool" };
 export const dynamic = "force-dynamic";
 
 export default async function OnboardingPage() {
