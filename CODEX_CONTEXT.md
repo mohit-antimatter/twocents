@@ -2,6 +2,15 @@
 
 Updated 2026-08-31. Read this before touching code; older dated entries below are historical.
 
+## Release 0.4.0 — Shortcut onboarding
+
+- The owner authorized an optional iPhone Ledger prompt after household setup, a three-step setup guide, device/browser dismissal and explicit confirmation, followed by deployment.
+- `ShortcutPrompt` sits below expense entry and presets; it is hidden outside iPhone user agents and during direct-add/edit launches. It offers Set up Shortcut / Continue setup and Not now. No expense-entry or household-setup step is blocked.
+- `ShortcutSetup` in Settings guides Install → Assign Back Tap → Try it. Only the final It works action stores completion. Downloads, URL tests, and returning from Shortcuts do not. Review setup remains available after completion.
+- `useShortcutSetup` shares a validated localStorage enum across the prompt and guide with same-page and cross-tab subscriptions, SSR-safe snapshots, and an in-memory fallback when storage is unavailable. Preferences are per browser/app installation, not per account; no private data or database migration. Existing users see the optional prompt too until dismissed/completed.
+- Physical Back Tap and installation still require a device-side test. Do not claim iOS automatically configured or verified them.
+- Verification: 71 automated regressions plus lint, TypeScript and production build pass. Isolated browser QA checked iPhone/Android/iPad/desktop eligibility, persistent dismissal, Settings access, resumed steps, download and URL-test non-completion, explicit confirmation, direct-form prompt suppression, 320px layout, and expense saving after simulated storage quota failure. No live household data used.
+
 ## Release 0.3.0 — iPhone Back Tap shortcut
 
 - The owner authorized a preconfigured Shortcut opening the single-screen form, followed by deployment. Settings now offers a signed `.shortcut` download and one-time iPhone setup; Back Tap must be assigned by the owner on the phone.

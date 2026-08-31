@@ -26,6 +26,7 @@ import InviteManager from "@/components/InviteManager";
 import SpendingPace from "@/components/SpendingPace";
 import CategoryBudgetPace from "@/components/CategoryBudgetPace";
 import BrandLogo from "@/components/BrandLogo";
+import ShortcutPrompt from "@/components/ShortcutPrompt";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Ledger | OurPool" };
@@ -104,6 +105,8 @@ export default async function Home({
       <section className="mb-7">
         <PresetChips presets={presets} />
       </section>
+
+      <ShortcutPrompt suppressed={openAdd || Boolean(editId)} />
 
       <ExpenseList
         key={editId ?? "ledger"}
