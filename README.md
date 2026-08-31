@@ -41,6 +41,12 @@ The OurPool mark combines an O and P in the app's existing mint and ivory palett
 
 The rebrand does not change database tables, session cookies, Google callbacks, Shortcuts tokens, or the `twocents-household-backup` format identifier. Older backups remain compatible; new downloaded filenames begin with `ourpool-`. An existing iPhone home-screen shortcut may need to be removed and re-added to refresh its saved name and icon; this does not delete server-side household data.
 
+### Adding an expense
+
+On the Ledger, choose **Add expense** to open the standard form. Give the expense a name (such as Coffee, Taxi, or a merchant's name), enter the amount, choose a currency and category, and pick the date. The name is required and becomes the ledger title; time and note are optional. The date defaults to today on your device, and the currency defaults to your household currency. Expenses are recorded as paid by the signed-in person.
+
+After saving, the confirmation offers **Undo** and **Edit details**. If the connection drops, your draft stays in the form and retrying the same submission does not add a duplicate. Quick text entry, voice, and presets remain available alongside the form.
+
 ### Household data backup and restore
 
 Settings → **Your data** provides:

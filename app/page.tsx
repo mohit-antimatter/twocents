@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { getSessionUser } from "@/lib/auth";
 import {
   getHousehold,
+  getEditableExpense,
   getMembers,
   getMonthSummary,
   getSpendingPace,
@@ -30,16 +31,18 @@ export const metadata: Metadata = { title: "Ledger | OurPool" };
 export default async function Home({
   searchParams,
 }: {
-  searchParams?: Promise<{ edit?: string }>;
+  searchParams?: Promise<{ edit?: string | string[] }>;
 }) {
   const user = await getSessionUser();
   if (!user) redirect("/login");
   if (!user.householdId) redirect("/onboarding");
+  const editParam = (await searchParams)?.edit;
+  const editId = typeof editParam === "string" ? editParam : undefined;
 
   const today = localToday();
   await materializeDueRecurring(user.householdId, today);
   const month = today.slice(0, 7);
-  const [hh, members, summary, pace, budgetPaces, presets, recent, categoryRows] =
+  const [hh, members, summary, pace, budgetPaces, presets, recent, categoryRows, editExpense] =
     await Promise.all([
       getHousehold(user.householdId),
       getMembers(user.householdId),
@@ -49,6 +52,7 @@ export default async function Home({
       listPresets(user.householdId),
       listRecentExpenses(user.householdId, 40),
       listCategories(user.householdId),
+      editId ? getEditableExpense(user.householdId, user.id, editId) : null,
     ]);
   const personColors = personColorMap(members);
   const categories = categoryRows.map((c) => ({
@@ -91,7 +95,7 @@ export default async function Home({
       )}
 
       <section className="mb-4">
-        <QuickAdd />
+        <QuickAdd categories={categories} homeCurrency={hh.home_currency} payerName={user.name} />
       </section>
 
       <section className="mb-7">
@@ -99,12 +103,14 @@ export default async function Home({
       </section>
 
       <ExpenseList
+        key={editId ?? "ledger"}
         items={recent}
         personColors={personColors}
         today={today}
         currentUserId={user.id}
         categories={categories}
-        initialEditId={(await searchParams)?.edit}
+        initialEditId={editId}
+        initialEditExpense={editExpense}
       />
       <AppNav />
     </main>

@@ -86,15 +86,65 @@ export async function createExpenseFromParsed(opts: {
     : null;
   const fallbackCat = cat ?? cats.find((c) => c.name === "Other") ?? null;
 
+  return insertExpense({
+    ...opts,
+    amountMinor,
+    currency,
+    fx,
+    category: fallbackCat,
+    merchant: opts.parsed.merchant,
+    note: opts.parsed.note,
+    spentOn: opts.parsed.spent_on,
+    spentTime: opts.parsed.spent_on === todayISO() ? nowHHMM() : null,
+  });
+}
+
+/** Save validated form fields directly, without passing them through the text parser. */
+export async function createExpenseFromFields(opts: {
+  householdId: string;
+  userId: string;
+  fields: ExpenseEdit;
+  requestId: string;
+}): Promise<{ id: string; summary: string; created: boolean }> {
+  const [hh, cats] = await Promise.all([
+    getHousehold(opts.householdId),
+    listCategories(opts.householdId),
+  ]);
+  const category = cats.find((c) => c.id === opts.fields.categoryId) ?? null;
+  if (opts.fields.categoryId && !category) throw new Error("Unknown household category.");
+  return insertExpense({
+    ...opts,
+    ...opts.fields,
+    amountMinor: Math.round(opts.fields.amount * 100),
+    fx: fxRate(opts.fields.currency, hh.home_currency),
+    category,
+    source: "web",
+    rawInput: null,
+  });
+}
+
+async function insertExpense(opts: {
+  householdId: string;
+  userId: string;
+  amountMinor: number;
+  currency: string;
+  fx: number;
+  category: { id: string; name: string; emoji: string } | null;
+  merchant: string | null;
+  note: string | null;
+  spentOn: string;
+  spentTime: string | null;
+  source: string;
+  rawInput: string | null;
+  requestId?: string | null;
+}): Promise<{ id: string; summary: string; created: boolean }> {
+
   if (opts.requestId) {
     const existing = await expenseByRequestId(opts.householdId, opts.userId, opts.requestId);
     if (existing) return { ...existing, created: false };
   }
 
   const id = uid();
-  // Time of spend: when logging for today, stamp the current time; a
-  // backdated entry's time is unknown and stays editable-but-empty.
-  const spentTime = opts.parsed.spent_on === todayISO() ? nowHHMM() : null;
   try {
     await db().query(
         `INSERT INTO expenses
@@ -105,14 +155,14 @@ export async function createExpenseFromParsed(opts: {
         id,
         opts.householdId,
         opts.userId,
-        amountMinor,
-        currency,
-        fx,
-        fallbackCat?.id ?? null,
-        opts.parsed.merchant,
-        opts.parsed.note,
-        opts.parsed.spent_on,
-        spentTime,
+        opts.amountMinor,
+        opts.currency,
+        opts.fx,
+        opts.category?.id ?? null,
+        opts.merchant,
+        opts.note,
+        opts.spentOn,
+        opts.spentTime,
         opts.source,
         opts.rawInput,
         opts.requestId ?? null,
@@ -133,11 +183,11 @@ export async function createExpenseFromParsed(opts: {
     throw error;
   }
 
-  const label = fallbackCat ? `${fallbackCat.emoji} ${fallbackCat.name}` : "Uncategorized";
-  const who = opts.parsed.merchant ? ` · ${opts.parsed.merchant}` : "";
+  const label = opts.category ? `${opts.category.emoji} ${opts.category.name}` : "Uncategorized";
+  const who = opts.merchant ? ` · ${opts.merchant}` : "";
   return {
     id,
-    summary: `${formatMinor(amountMinor, currency)} · ${label}${who} ✓`,
+    summary: `${formatMinor(opts.amountMinor, opts.currency)} · ${label}${who} ✓`,
     created: true,
   };
 }
@@ -193,6 +243,25 @@ export async function listRecentExpenses(
       [householdId, limit]
     )
   ).rows;
+}
+
+/** Fetch an editor target independently of the recent-ledger limit. */
+export async function getEditableExpense(
+  householdId: string,
+  userId: string,
+  expenseId: string
+): Promise<ExpenseRow | null> {
+  return (
+    await db().query<ExpenseRow>(
+      `SELECT e.*, u.name AS user_name,
+              c.name AS category_name, c.emoji AS category_emoji, c.color AS category_color
+       FROM expenses e
+       JOIN users u ON u.id = e.user_id
+       LEFT JOIN categories c ON c.id = e.category_id
+       WHERE e.household_id = $1 AND e.user_id = $2 AND e.id = $3`,
+      [householdId, userId, expenseId]
+    )
+  ).rows[0] ?? null;
 }
 
 export type ExpenseExportRow = Pick<

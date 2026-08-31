@@ -45,6 +45,7 @@ export default function ExpenseList({
   currentUserId,
   categories,
   initialEditId,
+  initialEditExpense,
 }: {
   items: ExpenseItem[];
   personColors: Record<string, string>;
@@ -52,13 +53,12 @@ export default function ExpenseList({
   currentUserId: string;
   categories: CategoryOption[];
   initialEditId?: string;
+  initialEditExpense?: ExpenseItem | null;
 }) {
   const router = useRouter();
   const [editing, setEditing] = useState<ExpenseItem | null>(() =>
-    initialEditId
-      ? items.find(
-          (item) => item.id === initialEditId && item.user_id === currentUserId
-        ) ?? null
+    initialEditExpense?.id === initialEditId && initialEditExpense?.user_id === currentUserId
+      ? initialEditExpense
       : null
   );
 
@@ -72,8 +72,7 @@ export default function ExpenseList({
       <div className="rounded-2xl border border-dashed border-hairline px-6 py-10 text-center">
         <p className="text-dim">Nothing logged yet.</p>
         <p className="mt-1 text-sm text-mute">
-          Type <span className="font-money text-dim">coffee 250</span> above — that&apos;s the whole
-          workflow.
+          Tap Add expense to use the form, or type <span className="font-money text-dim">coffee 250</span> in quick entry.
         </p>
       </div>
     );
