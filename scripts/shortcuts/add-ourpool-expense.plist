@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>WFQuickActionSurfaces</key>
+	<array/>
+	<key>WFWorkflowActions</key>
+	<array>
+		<dict>
+			<key>WFWorkflowActionIdentifier</key>
+			<string>is.workflow.actions.url</string>
+			<key>WFWorkflowActionParameters</key>
+			<dict>
+				<key>WFURLActionURL</key>
+				<string>https://ourpool.vercel.app/add</string>
+			</dict>
+		</dict>
+		<dict>
+			<key>WFWorkflowActionIdentifier</key>
+			<string>is.workflow.actions.openurl</string>
+			<key>WFWorkflowActionParameters</key>
+			<dict/>
+		</dict>
+	</array>
+	<key>WFWorkflowClientVersion</key>
+	<string>900</string>
+	<key>WFWorkflowIcon</key>
+	<dict>
+		<key>WFWorkflowIconGlyphNumber</key>
+		<integer>59511</integer>
+		<key>WFWorkflowIconStartColor</key>
+		<integer>4292093695</integer>
+	</dict>
+	<key>WFWorkflowImportQuestions</key>
+	<array/>
+	<key>WFWorkflowInputContentItemClasses</key>
+	<array/>
+	<key>WFWorkflowMinimumClientVersion</key>
+	<integer>900</integer>
+	<key>WFWorkflowMinimumClientVersionString</key>
+	<string>900</string>
+	<key>WFWorkflowName</key>
+	<string>Add OurPool Expense</string>
+	<key>WFWorkflowOutputContentItemClasses</key>
+	<array/>
+	<key>WFWorkflowTypes</key>
+	<array/>
+</dict>
+</plist>

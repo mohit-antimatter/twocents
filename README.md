@@ -70,7 +70,15 @@ Keep `data/twocents.db` as a backup until the deployed app has been checked. Nev
 
 ### iPhone Shortcuts / Siri
 
-Settings → *Siri & iPhone Shortcuts* → generate a token, then follow the 5-step guide there. You get "Hey Siri, log expense", Action Button, and Back Tap logging via a simple authenticated POST to `/api/shortcuts/capture`. Your phone must be able to reach the server (deploy it, or use your Mac's LAN IP in dev).
+Settings → **Siri & iPhone Shortcuts** → **Download iPhone Shortcut**. On the iPhone, open the downloaded file from Safari Downloads or Files and tap Add Shortcut. Run **Add OurPool Expense** once and sign in in your browser if asked. Then choose it under iPhone Settings → Accessibility → Touch → Back Tap → Double Tap. Siri and the Action Button can run the same shortcut.
+
+The signed shortcut contains only `https://ourpool.vercel.app/add`; it has no credentials and never saves automatically. The link opens the standard form with the household currency and device date prefilled. A ten-minute, one-use UI intent survives the existing sign-in and household setup flow. Internet is required; iOS may require unlocking. Browser and installed home-screen app sessions may differ, so a browser sign-in may be needed once. Assigning Back Tap is a manual iPhone setting.
+
+If downloading is inconvenient, create a shortcut with the Open URLs action pointing to `https://ourpool.vercel.app/add`. Name it Add OurPool Expense and assign it to Back Tap. The distributed file always targets the production domain, including when downloaded from a preview deployment.
+
+The original dictation workflow remains under **Advanced: voice shortcut and API tokens**. It uses a personal token and `POST /api/shortcuts/capture`; the form shortcut does not need a token.
+
+To rebuild the public shortcut on macOS, run `python3 scripts/build-iphone-shortcut.py`. The auditable source is `scripts/shortcuts/add-ourpool-expense.plist`; Apple's `shortcuts sign --mode anyone` produces `public/shortcuts/add-ourpool-expense.shortcut`. Apple receives this public, credential-free workflow for signing. No iCloud share link or server-side signing service is needed.
 
 ## Architecture
 

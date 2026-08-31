@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { CURRENCIES } from "@/lib/money";
+import { ADD_EXPENSE_INTENT_COOKIE } from "@/lib/shortcut";
 import type { CategoryOption } from "./ExpenseList";
 
 export default function AddExpenseForm({
@@ -9,11 +10,13 @@ export default function AddExpenseForm({
   homeCurrency,
   payerName,
   onSaved,
+  autoOpen = false,
 }: {
   categories: CategoryOption[];
   homeCurrency: string;
   payerName: string;
   onSaved: (expense: { id: string; summary: string }) => void;
+  autoOpen?: boolean;
 }) {
   const defaultCategory = categories.find((category) => category.name === "Other")?.id ?? "";
   const [amount, setAmount] = useState("");
@@ -30,12 +33,14 @@ export default function AddExpenseForm({
   const busyRef = useRef(false);
   const previousOverflow = useRef<string | null>(null);
   const pendingRequest = useRef<{ payload: string; id: string } | null>(null);
+  const openedFromShortcut = useRef(false);
 
   useEffect(() => () => {
     if (previousOverflow.current !== null) document.body.style.overflow = previousOverflow.current;
   }, []);
 
-  function open() {
+  const open = useCallback(() => {
+    if (dialogRef.current?.open) return;
     if (!spentOn) {
       const now = new Date();
       setSpentOn(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`);
@@ -44,7 +49,19 @@ export default function AddExpenseForm({
     document.body.style.overflow = "hidden";
     dialogRef.current?.showModal();
     nameRef.current?.focus();
-  }
+  }, [spentOn]);
+
+  useEffect(() => {
+    if (!autoOpen || openedFromShortcut.current) return;
+    const frame = window.requestAnimationFrame(() => {
+      // Router history can restore an old server prop after the intent was used.
+      if (!document.cookie.split(";").some((cookie) => cookie.trim() === `${ADD_EXPENSE_INTENT_COOKIE}=1`)) return;
+      openedFromShortcut.current = true;
+      open();
+      document.cookie = `${ADD_EXPENSE_INTENT_COOKIE}=; Max-Age=0; Path=/; SameSite=Lax`;
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [autoOpen, open]);
 
   function close() {
     if (!busyRef.current) dialogRef.current?.close();

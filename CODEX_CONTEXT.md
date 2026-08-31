@@ -2,6 +2,15 @@
 
 Updated 2026-08-31. Read this before touching code; older dated entries below are historical.
 
+## Release 0.3.0 — iPhone Back Tap shortcut
+
+- The owner authorized a preconfigured Shortcut opening the single-screen form, followed by deployment. Settings now offers a signed `.shortcut` download and one-time iPhone setup; Back Tap must be assigned by the owner on the phone.
+- The shortcut contains only `https://ourpool.vercel.app/add`, no token. `/add` sets a ten-minute boolean UI intent cookie and redirects to the fixed Ledger URL. Existing authentication and onboarding are unchanged. The form consumes the cookie when it opens; refresh, Cancel and Save do not reopen it.
+- Source: `scripts/shortcuts/add-ourpool-expense.plist`. Rebuild the public file on macOS with `python3 scripts/build-iphone-shortcut.py` using Apple's `shortcuts sign --mode anyone`. Download always targets production. Never embed credentials in this artifact.
+- Browser and installed PWA sign-in may differ. A first browser sign-in, download/import, and manual Back Tap assignment are expected. No native iOS app or App Intents were added. Physical-iPhone gesture/import verification remains a device-side step.
+- The existing voice shortcut/token manager remains available under Advanced. No database, backup-format or OAuth changes.
+- Release verification: 71 tests, lint, TypeScript and production build pass. Isolated browser QA verified signed-out launch through login, immediate signed-in opening, Save/Cancel/refresh/history behavior, mobile/desktop layout, and a byte-identical signed-file download. No live household data was used.
+
 ## Release 0.2.0 — standard expense form
 
 - Release `0.2.0` adds a visible Add expense button on the Ledger and a standard form for a required expense name, amount, currency, category, date, and optional time and note. The expense name uses the existing merchant/title field; blank or whitespace-only names are rejected by both the form and its API. Quick text, voice, and presets remain available. The owner authorized deployment on 2026-08-31; GitHub and Vercel are the source of truth for release status.

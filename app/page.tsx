@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
+import { cookies } from "next/headers";
+import { ADD_EXPENSE_INTENT_COOKIE } from "@/lib/shortcut";
 import { getSessionUser } from "@/lib/auth";
 import {
   getHousehold,
@@ -38,6 +40,7 @@ export default async function Home({
   if (!user.householdId) redirect("/onboarding");
   const editParam = (await searchParams)?.edit;
   const editId = typeof editParam === "string" ? editParam : undefined;
+  const openAdd = !editId && (await cookies()).get(ADD_EXPENSE_INTENT_COOKIE)?.value === "1";
 
   const today = localToday();
   await materializeDueRecurring(user.householdId, today);
@@ -95,7 +98,7 @@ export default async function Home({
       )}
 
       <section className="mb-4">
-        <QuickAdd categories={categories} homeCurrency={hh.home_currency} payerName={user.name} />
+        <QuickAdd categories={categories} homeCurrency={hh.home_currency} payerName={user.name} openAdd={openAdd} />
       </section>
 
       <section className="mb-7">

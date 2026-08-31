@@ -12,6 +12,7 @@ import InviteManager from "@/components/InviteManager";
 import PresetManager from "@/components/PresetManager";
 import RecurringManager from "@/components/RecurringManager";
 import TokenManager from "@/components/TokenManager";
+import ShortcutSetup from "@/components/ShortcutSetup";
 import SignOutButton from "@/components/SignOutButton";
 import AppNav from "@/components/AppNav";
 import { hasGoogleIdentity } from "@/lib/google-auth";
@@ -156,14 +157,19 @@ export default async function SettingsPage({
         </section>
 
         {/* Siri & Shortcuts */}
-        <section>
+        <section id="iphone-shortcuts">
           <h2 className="mb-1 text-xs font-medium uppercase tracking-[0.14em] text-mute">
             Siri &amp; iPhone Shortcuts
           </h2>
           <p className="mb-3 text-sm text-mute">
-            Log expenses by voice from anywhere — Action Button, Back Tap, or “Hey Siri”.
+            Open the form with Back Tap, or use the optional voice shortcut.
           </p>
-          <TokenManager initialTokens={tokens} />
+          <ShortcutSetup />
+          <details className="rounded-xl border border-hairline p-4">
+            <summary className="min-h-11 cursor-pointer py-2 text-sm text-ink">Advanced: voice shortcut and API tokens</summary>
+            <p className="mb-4 text-sm text-dim">Only needed for the separate dictation shortcut. The form shortcut above uses your browser sign-in.</p>
+            <TokenManager initialTokens={tokens} />
+          </details>
         </section>
 
         {/* Categories */}
