@@ -12,10 +12,11 @@ type Toast =
 
 const subscribeToBrowserCapability = () => () => {};
 
-export default function QuickAdd({ categories, homeCurrency, payerName }: {
+export default function QuickAdd({ categories, homeCurrency, payerName, openAdd = false }: {
   categories: CategoryOption[];
   homeCurrency: string;
   payerName: string;
+  openAdd?: boolean;
 }) {
   const router = useRouter();
   const [text, setText] = useState("");
@@ -140,6 +141,7 @@ export default function QuickAdd({ categories, homeCurrency, payerName }: {
         categories={categories}
         homeCurrency={homeCurrency}
         payerName={payerName}
+        autoOpen={openAdd}
         onSaved={({ id, summary }) => {
           showToast({ kind: "ok", msg: summary, expenseId: id });
           router.refresh();

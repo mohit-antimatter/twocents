@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.0] - 2026-08-31
+
+### Added
+
+- Download a ready-made, signed iPhone Shortcut from Settings to open the expense form with Back Tap, Siri, or the Action Button. No API token is needed.
+- A direct `/add` link opens the form and remembers the request through sign-in or household setup for up to ten minutes.
+
 ## [0.2.0] - 2026-08-31
 
 ### Added
