@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.0] - 2026-08-31
+
+### Added
+
+- Offer iPhone users an optional Shortcut setup card on the Ledger after household setup, without blocking expense entry.
+- Guide installation, Back Tap assignment and a device test in three steps; remember progress or dismissal in the current browser. Only an explicit “It works” confirmation completes setup. Settings always keeps setup available.
+
 ## [0.3.0] - 2026-08-31
 
 ### Added

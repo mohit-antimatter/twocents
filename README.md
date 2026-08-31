@@ -70,6 +70,10 @@ Keep `data/twocents.db` as a backup until the deployed app has been checked. Nev
 
 ### iPhone Shortcuts / Siri
 
+After household setup, iPhone users see an optional **Add expenses with a double tap** card below the Ledger's entry controls. **Set up Shortcut** opens Settings; **Not now** dismisses the card in that browser. Existing users also see it until dismissed or completed. Android, iPad, and desktop browsers do not get the card; Settings remains available on every device.
+
+Settings guides **Install → Assign Back Tap → Try it**. Progress persists when leaving and returning. Downloading the file or opening the form never marks setup complete: the user must confirm **It works** after testing on the phone. Confirmation hides the Ledger reminder; **Review setup** in Settings can restart it. State is local to the browser/app installation, not the account or household; clearing site data or using a separate browser/PWA can show the prompt again. If local storage is blocked or full, controls still work with an in-memory fallback for the current page session.
+
 Settings → **Siri & iPhone Shortcuts** → **Download iPhone Shortcut**. On the iPhone, open the downloaded file from Safari Downloads or Files and tap Add Shortcut. Run **Add OurPool Expense** once and sign in in your browser if asked. Then choose it under iPhone Settings → Accessibility → Touch → Back Tap → Double Tap. Siri and the Action Button can run the same shortcut.
 
 The signed shortcut contains only `https://ourpool.vercel.app/add`; it has no credentials and never saves automatically. The link opens the standard form with the household currency and device date prefilled. A ten-minute, one-use UI intent survives the existing sign-in and household setup flow. Internet is required; iOS may require unlocking. Browser and installed home-screen app sessions may differ, so a browser sign-in may be needed once. Assigning Back Tap is a manual iPhone setting.
