@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
+import AddExpenseForm from "./AddExpenseForm";
+import type { CategoryOption } from "./ExpenseList";
 
 type Toast =
   | { kind: "ok"; msg: string; expenseId: string }
@@ -10,7 +12,11 @@ type Toast =
 
 const subscribeToBrowserCapability = () => () => {};
 
-export default function QuickAdd() {
+export default function QuickAdd({ categories, homeCurrency, payerName }: {
+  categories: CategoryOption[];
+  homeCurrency: string;
+  payerName: string;
+}) {
   const router = useRouter();
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
@@ -130,6 +136,16 @@ export default function QuickAdd() {
 
   return (
     <div className="relative">
+      <AddExpenseForm
+        categories={categories}
+        homeCurrency={homeCurrency}
+        payerName={payerName}
+        onSaved={({ id, summary }) => {
+          showToast({ kind: "ok", msg: summary, expenseId: id });
+          router.refresh();
+        }}
+      />
+      <p className="mb-2 text-xs font-medium text-mute">Or use quick entry</p>
       <form
         onSubmit={(e) => {
           e.preventDefault();
@@ -168,7 +184,7 @@ export default function QuickAdd() {
         <button
           type="submit"
           disabled={busy || !text.trim()}
-          aria-label="Add expense"
+          aria-label="Save quick entry"
           className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-mint text-bg transition-opacity disabled:opacity-30"
         >
           {busy ? (

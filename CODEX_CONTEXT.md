@@ -1,11 +1,18 @@
 # OurPool — Handoff Context
 
-Updated 2026-08-30. Read this before touching code; older dated entries below are historical.
+Updated 2026-08-31. Read this before touching code; older dated entries below are historical.
+
+## Release 0.2.0 — standard expense form
+
+- Release `0.2.0` adds a visible Add expense button on the Ledger and a standard form for a required expense name, amount, currency, category, date, and optional time and note. The expense name uses the existing merchant/title field; blank or whitespace-only names are rejected by both the form and its API. Quick text, voice, and presets remain available. The owner authorized deployment on 2026-08-31; GitHub and Vercel are the source of truth for release status.
+- `POST /api/expenses` validates fields and household category ownership, derives the payer/household from the session, and saves directly without text parsing. It shares the existing retry-safe insert with parsed captures and uses the existing `web` source; no schema or backup-format change is needed.
+- The form defaults to the device's current date and household currency, preserves drafts after network errors, and offers the existing Undo/Edit details receipt. The Ledger remounts its expense list when the edit query changes and separately fetches the requested expense with household/payer scoping, so the saved-expense shortcut also opens backdated entries outside the latest 40.
+- Verification: 69 tests pass with bundled Node 24, including required-name validation and scoped editing of older expenses; lint, TypeScript, and the production build pass. Isolated PGlite browser QA covered form saves, a lost response followed by a duplicate-safe retry, saved-expense editing, and layouts from 320px to desktop. No live household data was used.
 
 ## Latest owner decisions and deployment
 
 - The product is now **OurPool**, with calm, trustworthy household-expense positioning. The public URL is `https://ourpool.vercel.app`. The owner confirmed deployment and Google sign-in work on 2026-08-30.
-- Branding code now uses the shared `components/BrandLogo.tsx` and `public/ourpool-mark.svg`; `npm run icons:generate` regenerates the favicon and PWA/Apple icons. No database, OAuth, cookie, or token identifiers were renamed. Keep the legacy backup format for compatibility. Release `0.1.1` is prepared on `codex/ourpool-branding`; committing and merging it is the current release step, not yet complete.
+- Branding code uses the shared `components/BrandLogo.tsx` and `public/ourpool-mark.svg`; `npm run icons:generate` regenerates the favicon and PWA/Apple icons. No database, OAuth, cookie, or token identifiers were renamed. Keep the legacy backup format for compatibility. Release `0.1.1` was merged into `main` in GitHub PR #2 on 2026-08-30 (merge commit `4799fbb`); its Vercel preview checks passed.
 - The canonical GitHub repository is [mohit-antimatter/ourpool](https://github.com/mohit-antimatter/ourpool), with default branch `main`; earlier PR #1 is already merged. The local origin URL still uses `https://github.com/mohit-antimatter/twocents.git` and redirects to the renamed repository. The local folder remains `Twocents`; do not rename infrastructure as part of this visual rebrand.
 - The owner does **not** need the old test data imported. Preserve any local database files, but do not run a migration automatically.
 - The owner authorized committing and merging this branding release on 2026-08-30. Give the owner manual dashboard/browser steps when needed; do not take over their browser.
@@ -61,13 +68,13 @@ PostgreSQL persistence was implemented on 2026-08-23 as the first deployment ste
 - `lib/backup.ts` — versioned full-household financial backup serialization and validation, transactional replace-from-backup, and transactional financial-data clearing. `app/api/backup` downloads JSON; `app/api/data/import` and `app/api/data/clear` are owner-only; `components/DataManager.tsx` owns the guarded Settings UI. CSV remains at `app/api/export`.
 - `lib/rate-limit.ts` — database-backed fixed-window limits for auth/invite/token abuse; request identifiers are HMACed before storage.
 - `lib/households.ts` — transactional household creation/joining, two-person enforcement, single-use invite rotation, and owner-only manual invite replacement.
-- `lib/parse.ts` — THE parsing brain. Every capture surface funnels here. Currency symbols/words, digit + `k`/`lakh` shorthand, spelled-out word-numbers, date words (yesterday/day before/weekdays), category+merchant from `CATEGORY_KEYWORDS`.
+- `lib/parse.ts` — THE parsing brain. Quick text, voice, and Shortcuts captures funnel here; the standard expense form saves validated fields directly. Currency symbols/words, digit + `k`/`lakh` shorthand, spelled-out word-numbers, date words (yesterday/day before/weekdays), category+merchant from `CATEGORY_KEYWORDS`.
 - `lib/categories.ts` — default category set with chart colors + the keyword dictionary, including the dedicated neutral Household Help category and role terms.
 - `lib/expenses.ts` — all expense ops: create-from-parsed (stamps `spent_time` only when spent_on == today), update/delete with creator checks, month summaries with case-insensitive merchant/title groupings, presets.
 - `lib/recurring.ts` — validates and manages weekly/monthly schedules, advances monthly anchor dates, and transactionally materializes due charges without duplicates.
 - `lib/budgets.ts` — validates shared category guides, enforces household scope, rolls current-month expenses into home currency, and calculates neutral pace/projection values.
 - `lib/money.ts` — currency table, static per-USD rates, `formatMinor` (en-IN grouping for INR).
-- `app/api/*` — routes: auth (signup/login/logout/Google), household (create/join), capture, expenses/[id] (PATCH/DELETE, creator-only), presets (+ [id]/log), recurring (+ [id] PATCH/DELETE, creator-only), categories/[id]/budget (PATCH/DELETE, household-scoped), tokens, shortcuts/capture (bearer), CSV export, JSON backup, owner-only backup import, and owner-only shared-data clear.
+- `app/api/*` — routes: auth (signup/login/logout/Google), household (create/join), capture, expenses (POST standard form), expenses/[id] (PATCH/DELETE, creator-only), presets (+ [id]/log), recurring (+ [id] PATCH/DELETE, creator-only), categories/[id]/budget (PATCH/DELETE, household-scoped), tokens, shortcuts/capture (bearer), CSV export, JSON backup, owner-only backup import, and owner-only shared-data clear.
 - `app/page.tsx` (home), `app/insights/`, `app/settings/`, `app/login|signup|onboarding/` — pages; server components + client islands in `components/`. `components/AppNav.tsx` owns shared logged-in navigation; `components/OnboardingFlow.tsx` owns create/join and the post-create invite handoff.
 - `components/ExpenseList.tsx` — list + EditSheet modal. `components/QuickAdd.tsx` — capture bar + voice. `components/RecurringManager.tsx` owns recurring schedule creation and controls. `components/BudgetManager.tsx` owns category-guide settings; `components/CategoryBudgetPace.tsx` renders the compact Home and full Insights views. `components/SpendingPace.tsx` renders the home pace card; the calculation/query lives in `lib/expenses.ts`. `components/DataManager.tsx` owns backup/import/clear controls. CSV serialization lives in `lib/export.ts`; restorable JSON lives in `lib/backup.ts`.
 - PWA: `app/manifest.ts`, `public/sw.js` (registers only in production), icons generated by `scripts/gen-icons.mjs`.
@@ -93,9 +100,9 @@ Money rule: integers in minor units; `home_minor = round(amount_minor * fx_to_ho
 
 ## Roadmap (research-ranked; see docs/market-research.md)
 
-Completed: CSV export; restorable JSON backup/import and guarded shared-data clear; glanceable spend-so-far vs typical-by-this-date pace; recurring expenses; gentle per-category guides; Household Help categorization; Insights category/title drill-downs.
+Completed: standard expense form with required expense name; CSV export; restorable JSON backup/import and guarded shared-data clear; glanceable spend-so-far vs typical-by-this-date pace; recurring expenses; gentle per-category guides; Household Help categorization; Insights category/title drill-downs.
 
-1. Complete the authorized OurPool branding release through GitHub, then verify Vercel serves the update. Hosting, Neon storage, and Google sign-in are already configured; no new project, database migration, or OAuth-client recreation is needed for this change.
+Hosting, Neon storage, and Google sign-in are already configured. The standard expense form needs no new project, database migration, or OAuth-client recreation.
 
 Deferred by the owner: private expenses are not needed for now. Formal subcategories are also unnecessary unless later evidence supports them; the expandable title grouping covers the current need without adding capture friction.
 

@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.2.0] - 2026-08-31
+
+### Added
+
+- Add expenses from a standard form with a required expense name, amount, currency, category, date, and optional time and note. Quick text entry, voice, and presets remain available.
+
+### Fixed
+
+- Open the expense editor when choosing Edit details in a save confirmation, including backdated expenses outside the latest 40 entries.
+
 ## [0.1.1] - 2026-08-30
 
 ### Changed

@@ -35,7 +35,7 @@ export function validateExpenseEdit(
   }
 
   const currency = typeof body.currency === "string" ? body.currency : "";
-  if (!CURRENCIES[currency]) return { ok: false, error: "Unknown currency." };
+  if (!Object.hasOwn(CURRENCIES, currency)) return { ok: false, error: "Unknown currency." };
 
   const spentOn = typeof body.spentOn === "string" ? body.spentOn : "";
   if (!isValidISODate(spentOn)) {
